@@ -773,8 +773,8 @@ aktarma.
 # 12. Proje durumu --- Antigravity bu bölümü güncel tutsun
 
   Aşama                                Durum        Not
-  ------------------------------------ ------------ -----
-  0\. Keşif ve teknik doğrulama        Başlanmadı   
+  ------------------------------------ ------------ ----------------------------------------------------
+  0\. Keşif ve teknik doğrulama        Tamamlandı   .NET 8 SDK kuruldu, BLE GATT pil (%100) ve PnP teyit edildi.
   1\. Proje iskeleti ve UI prototipi   Başlanmadı   
   2\. Gerçek bağlantı algılama         Başlanmadı   
   3\. Oturum ve zaman hesaplama        Başlanmadı   
