@@ -32,7 +32,7 @@ Windows 11 üzerinde Microsoft Xbox Wireless Controller (9. Nesil / Model 1914) 
 | **0** | **Keşif ve Teknik Doğrulama** | **Tamamlandı** ✅ |
 | **1** | **Proje İskeleti ve Tasarım Prototipi** | **Tamamlandı** ✅ |
 | **2** | **Gerçek Xbox Bağlantı Algılama Prototipi** | **Tamamlandı** ✅ |
-| 3 | Oturum Kaydı ve Zaman Hesaplama | Beklemede |
+| **3** | **Oturum Kaydı ve Zaman Hesaplama** | **Tamamlandı** ✅ |
 | 4 | Dashboard'u Gerçek Veriye Bağlama | Beklemede |
 | 5 | Pil Yönetimi (Manuel İlk Sürüm) | Beklemede |
 | 6 | Analizler ve Raporlama | Beklemede |
