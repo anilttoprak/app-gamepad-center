@@ -1,0 +1,193 @@
+<UserControl x:Class="ControllerHub.App.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1000">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="28,24,28,32">
+
+            <!-- Mock Bilgilendirme Banner'ı (Spec Kural 5 gereği açıkça etiketli) -->
+            <Border Background="#FEF3F2" BorderBrush="#FECDCA" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="ℹ️" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Aşama 1 Prototipi — Görsel Tasarım &amp; Mock Veri Modu" FontWeight="SemiBold" Foreground="#B42318" FontSize="13"/>
+                        <TextBlock Text="Aşağıdaki metrikler ve grafikler arayüz tasarımı için örnek (mock) olarak sunulmaktadır. Gerçek oturum verileri Aşama 3 ve 4'te bağlanacaktır." 
+                                   Foreground="#7A271A" FontSize="11.5" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Başlık ve Kontrolcü Bilgisi -->
+            <Grid Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Genel Bakış" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                    <TextBlock Text="Xbox kontrolcünüzün bağlantı süreleri ve pil kullanım özeti." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 4 KPI Metrik Kartı -->
+            <Grid Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Kart 1: Toplam Süre -->
+                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Toplam Bağlantı Süresi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding TotalConnectionTime}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Tüm zamanlar [Mock]" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Kart 2: Bugünkü Süre -->
+                <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Bugünkü Bağlantı Süresi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding TodayConnectionTime}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,8,0,4"/>
+                        <TextBlock Text="00:00'dan şu ana kadar [Mock]" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Kart 3: Pil Seviyesi -->
+                <Border Grid.Column="4" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Mevcut Pil Seviyesi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding BatteryLevelText}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushSuccess}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Bluetooth GATT %100 [Doğrulandı]" FontSize="11" Foreground="{StaticResource BrushSuccess}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Kart 4: Toplam Oturum -->
+                <Border Grid.Column="6" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Toplam Oturum" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding TotalSessionsCount}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Bağlantı döngüsü [Mock]" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Orta Kısım: Grafik ve Hızlı İşlemler -->
+            <Grid Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Sol: 7 Günlük Aktivite Grafiği (Mock Bar Chart) -->
+                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,16">
+                            <TextBlock Text="Son 7 Günlük Bağlantı Süresi" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
+                            <TextBlock Text="Saat cinsinden" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Çubuk Grafik Çizimi -->
+                        <ItemsControl ItemsSource="{Binding WeeklyActivity}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1" Height="140" VerticalAlignment="Bottom"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="6,0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Saat Etiketi -->
+                                        <TextBlock Grid.Row="0" Text="{Binding DisplayText}" FontSize="10.5" Foreground="{StaticResource BrushTextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+
+                                        <!-- Çubuk -->
+                                        <Border Grid.Row="1" Width="28" Height="{Binding BarHeight}" Background="{StaticResource BrushAccent}" CornerRadius="5" HorizontalAlignment="Center"/>
+
+                                        <!-- Gün Adı -->
+                                        <TextBlock Grid.Row="2" Text="{Binding DayName}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Sağ: Hızlı İşlemler ve Cihaz Durumu -->
+                <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Hızlı İşlemler" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                        <Button Content="🔋  Pil Değiştirdim" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                        <Button Content="📋  Oturum Geçmişini Aç" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                        <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,20"/>
+
+                        <Border Background="{StaticResource BrushBackgroundPage}" CornerRadius="8" Padding="12" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Cihaz Bilgisi" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource BrushTextPrimary}"/>
+                                <TextBlock Text="Microsoft Xbox Controller (Model 1914)" FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,2"/>
+                                <TextBlock Text="Protokol: Bluetooth Low Energy" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Son Oturumlar Tablosu -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Son Oturumlar" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
+                        <TextBlock Text="Son 4 bağlantı kaydı [Mock]" FontSize="12" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <DataGrid ItemsSource="{Binding RecentSessions}" AutoGenerateColumns="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" Background="Transparent"
+                              BorderThickness="0" RowBackground="Transparent" AlternatingRowBackground="#FAFAFC"
+                              HorizontalGridLinesBrush="{StaticResource BrushBorderLight}">
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="{StaticResource BrushTextSecondary}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="FontSize" Value="12"/>
+                                <Setter Property="Padding" Value="10,8"/>
+                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource BrushBorderLight}"/>
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="FontSize" Value="13"/>
+                                <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+                                <Setter Property="Padding" Value="6,4"/>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Tarih" Binding="{Binding Date}" Width="110"/>
+                            <DataGridTextColumn Header="Zaman Aralığı" Binding="{Binding TimeRange}" Width="150"/>
+                            <DataGridTextColumn Header="Bağlantı Süresi" Binding="{Binding Duration}" Width="130"/>
+                            <DataGridTextColumn Header="Kapanış Nedeni" Binding="{Binding Reason}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,94 @@
+<UserControl x:Class="ControllerHub.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1000">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="28,24,28,32">
+
+            <Grid Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Ayarlar" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                    <TextBlock Text="Uygulama tercihleri, sistem tepsisi ve veritabanı yönetimi." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 1. Sistem ve Bildirim Ayarları -->
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Sistem Entegrasyonu" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,14"/>
+
+                    <CheckBox IsChecked="{Binding StartWithWindows}" Margin="0,0,0,12" Cursor="Hand">
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="Windows açılışında otomatik başlat" FontSize="13.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}"/>
+                            <TextBlock Text="Kontrolcünüz bağlandığında oturumun kaçırılmaması için Controller Hub arka planda açılır." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </CheckBox>
+                    <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
+
+                    <CheckBox IsChecked="{Binding MinimizeToTray}" Margin="0,0,0,12" Cursor="Hand">
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="Kapatıldığında sistem tepsisine (Tray) küçült" FontSize="13.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}"/>
+                            <TextBlock Text="Pencereyi kapattığınızda uygulama kapanmaz; saatin yanındaki tepside oturumu saymaya devam eder." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </CheckBox>
+                    <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
+
+                    <CheckBox IsChecked="{Binding NotificationsEnabled}" Cursor="Hand">
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="Bağlantı bildirimlerini göster" FontSize="13.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}"/>
+                            <TextBlock Text="Xbox kontrolcünüz bağlandığında veya bağlantısı kesildiğinde Windows masaüstü bildirimi gösterir." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </CheckBox>
+                </StackPanel>
+            </Border>
+
+            <!-- 2. Veritabanı ve Yerel Saklama -->
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Veri Depolama ve Gizlilik" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,14"/>
+
+                    <TextBlock Text="Yerel Veritabanı Konumu (SQLite):" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                    <Grid Margin="0,6,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Text="{Binding DatabasePath}" IsReadOnly="True" Padding="10,8" FontSize="12" Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderLight}"/>
+                        <Button Grid.Column="2" Content="Klasörü Aç" Style="{StaticResource SecondaryButtonStyle}"/>
+                    </Grid>
+
+                    <TextBlock Text="* Tüm oturum ve pil kayıtlarınız yalnızca bu bilgisayarda saklanır, internete hiçbir veri aktarılmaz." FontSize="11.5" Foreground="{StaticResource BrushSuccess}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. Hakkında -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel>
+                    <TextBlock Text="Hakkında" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,14"/>
+
+                    <Grid Margin="0,0,0,8">
+                        <TextBlock Text="Uygulama Sürümü" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding AppVersion}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,8"/>
+
+                    <Grid Margin="0,0,0,8">
+                        <TextBlock Text="Hedef Donanım" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding TrackedControllerName}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,8"/>
+
+                    <Grid>
+                        <TextBlock Text="Algılama Motoru" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="Windows PnP + WinRT BLE GATT (Hibrit)" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Right"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

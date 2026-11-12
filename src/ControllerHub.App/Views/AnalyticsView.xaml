@@ -1,0 +1,117 @@
+<UserControl x:Class="ControllerHub.App.Views.AnalyticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1000">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="28,24,28,32">
+
+            <Grid Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Analizler &amp; İstatistikler" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                    <TextBlock Text="Bağlantı alışkanlıkları, pik kullanım saatleri ve oturum istatistikleri." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 4 Ana Analiz Kartı -->
+            <Grid Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Ortalama Oturum" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding AverageSessionDuration}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Tamamlanan oturumlar [Mock]" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="En Uzun Oturum" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding LongestSession}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Tek seferlik rekor süre" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="4" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="En Aktif Gün" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding MostActiveDay}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Haftalık dağılıma göre" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="6" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="En Aktif Saat Aralığı" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Text="{Binding MostActiveHour}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Akşam saatleri" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- İkincil İstatistik Blokları -->
+            <Grid Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Dönemsel Toplamlar" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                        <Grid Margin="0,0,0,12">
+                            <TextBlock Text="Bu Hafta Toplam" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
+                            <TextBlock Text="{Binding ThisWeekTotal}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
+
+                        <Grid Margin="0,0,0,12">
+                            <TextBlock Text="Bu Ay Toplam" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
+                            <TextBlock Text="{Binding ThisMonthTotal}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
+
+                        <Grid>
+                            <TextBlock Text="Gece Yarısını Aşan Oturumlar" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
+                            <TextBlock Text="Doğru günlere bölündü" FontSize="12" Foreground="{StaticResource BrushSuccess}" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Pil Verimliliği Tahmini" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                        <Grid Margin="0,0,0,12">
+                            <TextBlock Text="Pil Değişim Sayısı" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
+                            <TextBlock Text="{Binding BatteryChangeCount}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
+
+                        <Grid Margin="0,0,0,12">
+                            <TextBlock Text="Pil Başına Tahmini Bağlantı" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
+                            <TextBlock Text="{Binding EstimatedHoursPerBatterySet}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="* Pil değişim kayıtları biriktikçe bu tahmin otomatik olarak hassaslaşır." FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
