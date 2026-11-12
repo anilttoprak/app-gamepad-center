@@ -781,7 +781,7 @@ aktarma.
   4\. Gerçek verili dashboard          Tamamlandı   Dashboard gerçek SQLite verisine bağlandı, mock banner kaldırıldı, empty state ve canlı sayaç entegre edildi.
   5\. Manuel pil yönetimi              Tamamlandı   Manuel pil seviyesi, yeni pil seti kaydı, SQLite geçmişi ve Excel uyumlu CSV dışa aktarımı tamamlandı.
   6\. Analizler ve raporlama           Tamamlandı   Filtreli oturum geçmişi, AnalyticsEngine, dönem toplamları ve oturum CSV dışa aktarımı tamamlandı.
-  7\. Pil telemetrisi                  Başlanmadı   
+  7\. Pil telemetrisi                  Tamamlandı   BLE GATT (0x180F) telemetrisi, doğruluk/kaynak rozetleri, BatteryChangeDetector ve kullanıcı onaylı öneri motoru tamamlandı.
   8\. Sistem tepsisi ve başlangıç      Başlanmadı   
   9\. Paketleme ve yayın               Başlanmadı   
 

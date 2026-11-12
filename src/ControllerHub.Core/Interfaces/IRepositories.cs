@@ -16,7 +16,7 @@ public interface IBatteryRepository
 {
     Task RecordBatteryReadingAsync(BatteryReading reading);
     Task RecordBatteryChangeAsync(BatteryChange change);
-    Task<BatteryReading?> GetLatestReadingAsync(string deviceKey);
+    Task<BatteryReading?> GetLatestReadingAsync(string? deviceKey = null);
     Task<IReadOnlyList<BatteryReading>> GetRecentReadingsAsync(string deviceKey, int limit = 20);
     Task<IReadOnlyList<BatteryChange>> GetBatteryChangesAsync(int limit = 50);
 }

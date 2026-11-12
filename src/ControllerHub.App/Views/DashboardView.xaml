@@ -21,6 +21,21 @@
                 </StackPanel>
             </Grid>
 
+            <!-- Olası Pil Değişimi Bildirimi (Aşama 7) -->
+            <Border Background="#F0F9FF" BorderBrush="#B2DDFF" BorderThickness="1.5" CornerRadius="8" Padding="14,10" Margin="0,0,0,16"
+                    Visibility="{Binding HasBatteryProposal, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="🔋" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Grid.Column="1" Text="{Binding BatteryProposalText}" FontWeight="Medium" Foreground="#175CD3" FontSize="12.5" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="2" Text="Pil Yönetimi sekmesinden inceleyin ➔" FontSize="11.5" Foreground="#2E90FA" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                </Grid>
+            </Border>
+
             <!-- 4 GERÇEK KPI METRİK KARTI (SQLite & Canlı Donanım Verisi) -->
             <Grid Margin="0,0,0,24">
                 <Grid.ColumnDefinitions>
@@ -56,7 +71,7 @@
                     <StackPanel>
                         <TextBlock Text="Mevcut Pil Seviyesi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
                         <TextBlock Text="{Binding BatteryLevelText}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushSuccess}" Margin="0,8,0,4"/>
-                        <TextBlock Text="Bluetooth GATT (0x180F)" FontSize="11" Foreground="{StaticResource BrushSuccess}"/>
+                        <TextBlock Text="{Binding BatterySourceText}" FontSize="11" Foreground="{StaticResource BrushSuccess}"/>
                     </StackPanel>
                 </Border>
 

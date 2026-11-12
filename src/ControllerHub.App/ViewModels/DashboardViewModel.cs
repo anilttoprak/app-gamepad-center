@@ -35,6 +35,18 @@ public partial class DashboardViewModel : ViewModelBase
     private string _batteryLevelText = "Bilinmiyor";
 
     [ObservableProperty]
+    private string _batterySourceText = "Bluetooth GATT (0x180F)";
+
+    [ObservableProperty]
+    private string _batteryConfidenceBadge = "Tam Hassasiyet (%1)";
+
+    [ObservableProperty]
+    private bool _hasBatteryProposal = false;
+
+    [ObservableProperty]
+    private string _batteryProposalText = "";
+
+    [ObservableProperty]
     private string _totalSessionsCount = "0";
 
     [ObservableProperty]
@@ -104,10 +116,16 @@ public partial class DashboardViewModel : ViewModelBase
         // 6. Son Bilinen Pil Seviyesini Getir
         if (_batteryRepository != null)
         {
-            var latestBattery = await _batteryRepository.GetLatestReadingAsync("XBOX_CONTROLLER_DYNAMIC");
+            var latestBattery = await _batteryRepository.GetLatestReadingAsync();
             if (latestBattery?.Percentage != null)
             {
                 BatteryLevelText = $"%{latestBattery.Percentage.Value}";
+                BatterySourceText = latestBattery.Source == BatterySource.WindowsApiGatt
+                    ? "Bluetooth GATT (0x180F)"
+                    : (latestBattery.Source == BatterySource.Manual ? "Manuel Giriş" : "XInput");
+                BatteryConfidenceBadge = latestBattery.Confidence == BatteryConfidence.Exact
+                    ? "Tam Hassasiyet (%1)"
+                    : "Kaba Hassasiyet";
             }
         }
     }

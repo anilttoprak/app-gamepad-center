@@ -47,16 +47,16 @@ public class SqliteBatteryRepository : IBatteryRepository
         await cmd.ExecuteNonQueryAsync();
     }
 
-    public async Task<BatteryReading?> GetLatestReadingAsync(string deviceKey)
+    public async Task<BatteryReading?> GetLatestReadingAsync(string? deviceKey = null)
     {
         using var conn = _context.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
             SELECT Id, DeviceKey, RecordedAtUtc, Percentage, Source, Confidence, Note
             FROM BatteryReadings
-            WHERE DeviceKey = @deviceKey
+            WHERE (@deviceKey IS NULL OR DeviceKey = @deviceKey)
             ORDER BY RecordedAtUtc DESC LIMIT 1;";
-        cmd.Parameters.AddWithValue("@deviceKey", deviceKey);
+        cmd.Parameters.AddWithValue("@deviceKey", string.IsNullOrEmpty(deviceKey) ? DBNull.Value : deviceKey);
 
         using var reader = await cmd.ExecuteReaderAsync();
         if (await reader.ReadAsync())

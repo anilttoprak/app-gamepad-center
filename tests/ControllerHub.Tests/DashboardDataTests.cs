@@ -83,8 +83,8 @@ public class DashboardDataTests : IDisposable
 
     private class DummyDeviceWatcher : IDeviceWatcherService
     {
-        public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged;
-        public event EventHandler<int>? BatteryLevelUpdated;
+        public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged { add { } remove { } }
+        public event EventHandler<int>? BatteryLevelUpdated { add { } remove { } }
 
         public DeviceInfo CurrentDevice { get; } = new() { DeviceKey = "DUMMY", Name = "Dummy" };
         public bool IsRunning => false;

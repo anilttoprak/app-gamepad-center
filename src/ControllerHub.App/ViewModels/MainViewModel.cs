@@ -175,9 +175,26 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void ApplyBatteryLevel(int percentage)
     {
+        BatteryVM.UpdateCurrentPercentage(
+            percentage,
+            DateTimeOffset.UtcNow,
+            BatterySource.WindowsApiGatt,
+            BatteryConfidence.Exact,
+            IsDeviceConnected);
+
         DashboardVM.BatteryLevelText = $"%{percentage}";
-        BatteryVM.CurrentPercentage = $"%{percentage}";
-        BatteryVM.LastUpdatedText = $"{DateTime.Now:dd MMM yyyy HH:mm:ss} (Bluetooth GATT 0x180F)";
+        DashboardVM.BatterySourceText = "Bluetooth GATT (0x180F)";
+        DashboardVM.BatteryConfidenceBadge = "Tam Hassasiyet (%1)";
+
+        if (BatteryVM.HasPendingProposal)
+        {
+            DashboardVM.HasBatteryProposal = true;
+            DashboardVM.BatteryProposalText = BatteryVM.PendingProposalText;
+        }
+        else
+        {
+            DashboardVM.HasBatteryProposal = false;
+        }
     }
 
     public void Dispose()
