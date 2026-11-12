@@ -13,6 +13,8 @@ obj/
 x64/
 x86/
 build/
+dist/
+*.exe
 
 ## SQLite & Local DB
 *.db
