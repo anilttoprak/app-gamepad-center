@@ -94,15 +94,15 @@ public partial class AnalyticsViewModel : ViewModelBase
         ThisMonthTotal = SessionTimeCalculator.FormatDurationText(report.ThisMonthTotal);
         ThisYearTotal = SessionTimeCalculator.FormatDurationText(report.ThisYearTotal);
 
-        BatteryChangeCount = $"{report.TotalBatteryChangesCount} kez pil seti değiştirildi";
+        BatteryChangeCount = $"{report.TotalBatteryChangesCount} kez";
 
         if (report.EstimatedHoursPerBatterySet.HasValue)
         {
-            EstimatedHoursPerBatterySet = $"~{report.EstimatedHoursPerBatterySet.Value} saat / pil seti";
+            EstimatedHoursPerBatterySet = $"~{report.EstimatedHoursPerBatterySet.Value:0.#} sa / set";
         }
         else
         {
-            EstimatedHoursPerBatterySet = "Veri yetersiz (En az 1 değişim gerekli)";
+            EstimatedHoursPerBatterySet = "Değişim kaydı yok";
         }
     }
 

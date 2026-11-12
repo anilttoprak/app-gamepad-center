@@ -29,33 +29,33 @@
 
                 <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <TextBlock Text="Ortalama Oturum Süresi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding AverageSessionDuration}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
-                        <TextBlock Text="Tamamlanan oturumlar" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                        <TextBlock Text="Ortalama Oturum Süresi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding AverageSessionDuration}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4" Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock Text="Tamamlanan oturumlar" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <TextBlock Text="En Uzun Oturum (Rekor)" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding LongestSession}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,8,0,4"/>
-                        <TextBlock Text="Tek seferlik rekor süre" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                        <TextBlock Text="En Uzun Oturum (Rekor)" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding LongestSession}" FontSize="17" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,8,0,4" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Tek seferlik rekor süre" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Column="4" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <TextBlock Text="En Aktif Gün" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding MostActiveDay}" FontSize="17" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
-                        <TextBlock Text="Haftalık kullanım dağılımı" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                        <TextBlock Text="En Aktif Gün" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding MostActiveDay}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Haftalık kullanım dağılımı" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Column="6" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <TextBlock Text="En Aktif Saat Dilimi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding MostActiveHour}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4" TextWrapping="Wrap"/>
-                        <TextBlock Text="En çok oynanan aralık" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                        <TextBlock Text="En Aktif Saat Dilimi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding MostActiveHour}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="En çok oynanan aralık" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -74,26 +74,44 @@
                         <TextBlock Text="Dönemsel Toplam Bağlantı Süreleri" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
 
                         <Grid Margin="0,0,0,12">
-                            <TextBlock Text="Bu Hafta Toplam (Pzt-Paz)" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
-                            <TextBlock Text="{Binding ThisWeekTotal}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Right"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Bu Hafta Toplam (Pzt-Paz)" FontSize="13" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ThisWeekTotal}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                         </Grid>
                         <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
 
                         <Grid Margin="0,0,0,12">
-                            <TextBlock Text="Bu Ay Toplam" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
-                            <TextBlock Text="{Binding ThisMonthTotal}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Right"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Bu Ay Toplam" FontSize="13" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ThisMonthTotal}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                         </Grid>
                         <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
 
                         <Grid Margin="0,0,0,12">
-                            <TextBlock Text="Bu Yıl Toplam" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
-                            <TextBlock Text="{Binding ThisYearTotal}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Right"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Bu Yıl Toplam" FontSize="13" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ThisYearTotal}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                         </Grid>
                         <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
 
                         <Grid>
-                            <TextBlock Text="Gece Yarısını Aşan Oturumlar" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
-                            <TextBlock Text="Matematiksel olarak günlere bölündü" FontSize="12" Foreground="{StaticResource BrushSuccess}" HorizontalAlignment="Right"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Gece Yarısı Oturumları" FontSize="13" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <Border Grid.Column="1" Background="#ECFDF3" BorderBrush="#ABEFC6" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="10,0,0,0">
+                                <TextBlock Text="Ayrıştırıldı" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource BrushSuccess}"/>
+                            </Border>
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -104,14 +122,22 @@
                         <TextBlock Text="Pil Verimliliği &amp; Değişim İstatistiği" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
 
                         <Grid Margin="0,0,0,12">
-                            <TextBlock Text="Pil Seti Değişim Sayısı" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
-                            <TextBlock Text="{Binding BatteryChangeCount}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Right"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Pil Seti Değişim Sayısı" FontSize="13" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="1" Text="{Binding BatteryChangeCount}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                         </Grid>
                         <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
 
                         <Grid Margin="0,0,0,12">
-                            <TextBlock Text="Pil Seti Başına Ortalama Bağlantı" FontSize="13" Foreground="{StaticResource BrushTextSecondary}"/>
-                            <TextBlock Text="{Binding EstimatedHoursPerBatterySet}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Right"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Pil Seti Başına Ortalama Süre" FontSize="13" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="1" Text="{Binding EstimatedHoursPerBatterySet}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                         </Grid>
                         <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
 

@@ -162,9 +162,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         Application.Current?.Dispatcher?.Invoke(() =>
         {
-            // FR-04: Aktif oturum süresini ekranda canlı güncelle
             var formatted = SessionTimeCalculator.FormatDurationText(activeDuration);
-            DashboardVM.TodayConnectionTime = $"{formatted} (Aktif Canlı)";
             TrayStatusUpdated?.Invoke(this, $"🟢 Bağlı ({formatted})");
         });
     }

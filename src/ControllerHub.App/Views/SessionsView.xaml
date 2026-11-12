@@ -40,7 +40,11 @@
             <!-- Filtre Sekmeleri (FR-06) -->
             <Border Style="{StaticResource CardBorderStyle}" Padding="12,10" Margin="0,0,0,18">
                 <Grid>
-                    <StackPanel Orientation="Horizontal">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
                         <RadioButton Content="Tümü" IsChecked="True" Style="{StaticResource NavButtonStyle}" Margin="0,0,8,0"
                                      Command="{Binding SetFilterCommand}" CommandParameter="Tümü"/>
                         <RadioButton Content="Bugün" Style="{StaticResource NavButtonStyle}" Margin="0,0,8,0"
@@ -51,7 +55,7 @@
                                      Command="{Binding SetFilterCommand}" CommandParameter="Bu Ay"/>
                     </StackPanel>
 
-                    <TextBlock Text="{Binding TotalRecordedSessionsText}" FontSize="12.5" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                    <TextBlock Grid.Column="1" Text="{Binding TotalRecordedSessionsText}" FontSize="12.5" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </Grid>
             </Border>
 

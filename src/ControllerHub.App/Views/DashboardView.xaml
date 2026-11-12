@@ -51,36 +51,36 @@
                 <!-- Kart 1: Toplam Süre -->
                 <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <TextBlock Text="Toplam Bağlantı Süresi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding TotalConnectionTime}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
-                        <TextBlock Text="Kalıcı SQLite verisi" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                        <TextBlock Text="Toplam Bağlantı Süresi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding TotalConnectionTime}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4" Typography.NumeralAlignment="Tabular" TextOptions.TextFormattingMode="Display"/>
+                        <TextBlock Text="Kalıcı SQLite verisi" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Kart 2: Bugünkü Süre -->
                 <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <TextBlock Text="Bugünkü Bağlantı Süresi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding TodayConnectionTime}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,8,0,4"/>
-                        <TextBlock Text="Bugün 00:00'dan itibaren" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                        <TextBlock Text="Bugünkü Bağlantı Süresi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding TodayConnectionTime}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,8,0,4" Typography.NumeralAlignment="Tabular" TextOptions.TextFormattingMode="Display"/>
+                        <TextBlock Text="Bugün 00:00'dan itibaren" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Kart 3: Pil Seviyesi -->
                 <Border Grid.Column="4" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <TextBlock Text="Mevcut Pil Seviyesi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding BatteryLevelText}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushSuccess}" Margin="0,8,0,4"/>
-                        <TextBlock Text="{Binding BatterySourceText}" FontSize="11" Foreground="{StaticResource BrushSuccess}"/>
+                        <TextBlock Text="Mevcut Pil Seviyesi" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding BatteryLevelText}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushSuccess}" Margin="0,8,0,4" Typography.NumeralAlignment="Tabular" TextOptions.TextFormattingMode="Display"/>
+                        <TextBlock Text="{Binding BatterySourceText}" FontSize="11" Foreground="{StaticResource BrushSuccess}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Kart 4: Toplam Oturum -->
                 <Border Grid.Column="6" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <TextBlock Text="Toplam Oturum" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding TotalSessionsCount}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4"/>
-                        <TextBlock Text="Tamamlanan bağlantılar" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                        <TextBlock Text="Toplam Oturum" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding TotalSessionsCount}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,4" Typography.NumeralAlignment="Tabular" TextOptions.TextFormattingMode="Display"/>
+                        <TextBlock Text="Tamamlanan bağlantılar" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
             </Grid>

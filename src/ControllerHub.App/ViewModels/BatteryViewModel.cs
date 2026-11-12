@@ -151,16 +151,16 @@ public partial class BatteryViewModel : ViewModelBase
 
         SourceDescription = source switch
         {
-            BatterySource.WindowsApiGatt => "Bluetooth GATT (0x180F) - Donanımsal",
-            BatterySource.Manual => "Kullanıcı Girişi (Manuel)",
+            BatterySource.WindowsApiGatt => "Bluetooth GATT (0x180F)",
+            BatterySource.Manual => "Manuel Kullanıcı Girişi",
             BatterySource.XInput => "XInput Telemetrisi",
-            _ => "Bilinmeyen Kaynak"
+            _ => "Bilinmiyor"
         };
 
         ConfidenceDescription = confidence switch
         {
-            BatteryConfidence.Exact => "Tam Hassasiyet (%1 - Exact)",
-            BatteryConfidence.Coarse => "Kaba Hassasiyet (Düşük/Orta/Tam)",
+            BatteryConfidence.Exact => "Tam Hassasiyet (%1)",
+            BatteryConfidence.Coarse => "Kaba Seviye",
             _ => "Belirsiz"
         };
 
