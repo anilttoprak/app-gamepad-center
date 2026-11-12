@@ -776,7 +776,7 @@ aktarma.
   ------------------------------------ ------------ ----------------------------------------------------
   0\. Keşif ve teknik doğrulama        Tamamlandı   .NET 8 SDK kuruldu, BLE GATT pil (%100) ve PnP teyit edildi.
   1\. Proje iskeleti ve UI prototipi   Tamamlandı   Solution, 4 katmanlı mimari, MVVM, beyaz tema ve 5 ekran prototipi tamamlandı.
-  2\. Gerçek bağlantı algılama         Başlanmadı   
+  2\. Gerçek bağlantı algılama         Tamamlandı   Windows PnP ve WinRT BLE watcher kuruldu, 4s debounce ve 10 döngü doğrulaması test edildi.
   3\. Oturum ve zaman hesaplama        Başlanmadı   
   4\. Gerçek verili dashboard          Başlanmadı   
   5\. Manuel pil yönetimi              Başlanmadı   

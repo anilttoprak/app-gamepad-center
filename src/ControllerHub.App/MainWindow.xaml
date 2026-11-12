@@ -83,19 +83,23 @@
                                  Command="{Binding NavigateCommand}" CommandParameter="Settings"/>
                 </StackPanel>
 
-                <!-- 3. Alt Cihaz Durum Kartı -->
+                <!-- 3. Alt Cihaz Durum Kartı & Debug / Tanılama Rozeti (Aşama 2) -->
                 <Border Grid.Row="3" Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="10" Padding="12">
                     <StackPanel>
                         <TextBlock Text="{Binding ActiveControllerName}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
-                        <Grid Margin="0,6,0,0">
+                        <Grid Margin="0,6,0,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <!-- Kırmızı/Gri Durum Noktası -->
-                            <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{StaticResource BrushWarning}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock Grid.Column="1" Text="{Binding ConnectionStatusBadge}" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                            <!-- Canlı Durum Noktası -->
+                            <Ellipse Grid.Column="0" Width="8" Height="8" Fill="{Binding StatusColorBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ConnectionStatusBadge}" FontSize="11.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
                         </Grid>
+                        <!-- Debug / Tanılama Paneli (Spec Aşama 2 - Görev 7) -->
+                        <Border Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="6" Padding="6,4">
+                            <TextBlock Text="{Binding HardwareDiagnosticsText}" FontSize="9.5" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+                        </Border>
                     </StackPanel>
                 </Border>
             </Grid>
