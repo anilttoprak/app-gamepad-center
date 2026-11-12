@@ -20,3 +20,9 @@ public interface IBatteryRepository
     Task<IReadOnlyList<BatteryReading>> GetRecentReadingsAsync(string deviceKey, int limit = 20);
     Task<IReadOnlyList<BatteryChange>> GetBatteryChangesAsync(int limit = 50);
 }
+
+public interface ISettingsRepository
+{
+    Task<AppSettings> LoadSettingsAsync();
+    Task SaveSettingsAsync(AppSettings settings);
+}

@@ -15,16 +15,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly SqliteDatabaseContext _dbContext;
     private readonly ISessionRepository _sessionRepository;
     private readonly IBatteryRepository _batteryRepository;
+    private readonly ISettingsRepository _settingsRepository;
+    private readonly WindowsStartupService _startupService;
     private readonly IDeviceWatcherService _deviceWatcher;
     private readonly SessionTrackerService _sessionTracker;
 
     private bool _disposed;
+
+    public event EventHandler<(string Title, string Message)>? NotificationRequested;
+    public event EventHandler<string>? TrayStatusUpdated;
 
     public DashboardViewModel DashboardVM { get; } = new();
     public SessionsViewModel SessionsVM { get; } = new();
     public AnalyticsViewModel AnalyticsVM { get; } = new();
     public BatteryViewModel BatteryVM { get; } = new();
     public SettingsViewModel SettingsVM { get; } = new();
+
+    public bool MinimizeToTray => SettingsVM.MinimizeToTray;
 
     [ObservableProperty]
     private ViewModelBase _currentView;
@@ -52,6 +59,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _dbContext = new SqliteDatabaseContext();
         _sessionRepository = new SqliteSessionRepository(_dbContext);
         _batteryRepository = new SqliteBatteryRepository(_dbContext);
+        _settingsRepository = new SqliteSettingsRepository(_dbContext);
+        _startupService = new WindowsStartupService();
 
         // 2. Donanım İzleyici ve Oturum Takip Servisi
         _deviceWatcher = new WindowsBluetoothDeviceWatcher();
@@ -77,6 +86,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             BatteryVM.Initialize(_batteryRepository, _deviceWatcher);
             SessionsVM.Initialize(_sessionRepository, _sessionTracker);
             AnalyticsVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
+            SettingsVM.Initialize(_settingsRepository, _startupService, _dbContext.DatabasePath);
 
             await DashboardVM.RefreshDataAsync();
             await BatteryVM.RefreshDataAsync();
@@ -108,6 +118,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         else if (CurrentView is SessionsViewModel sv) await sv.RefreshDataAsync();
         else if (CurrentView is AnalyticsViewModel av) await av.RefreshDataAsync();
         else if (CurrentView is BatteryViewModel bv) await bv.RefreshDataAsync();
+        else if (CurrentView is SettingsViewModel st) await st.LoadSettingsAsync();
     }
 
     private void OnDeviceConnectionChanged(object? sender, DeviceConnectionChangedEventArgs e)
@@ -131,6 +142,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
             DashboardVM.IsConnected = IsDeviceConnected;
             DashboardVM.ConnectionStateText = IsDeviceConnected ? "🟢 Bağlı (Canlı Süre İşliyor)" : "⚪ Bağlı Değil";
 
+            if (e.State == DeviceConnectionState.Connected)
+            {
+                TrayStatusUpdated?.Invoke(this, "🟢 Bağlı");
+            }
+            else if (e.State == DeviceConnectionState.Disconnected)
+            {
+                TrayStatusUpdated?.Invoke(this, "⚪ Bağlı Değil");
+            }
+
             if (e.Device.BatteryLevel.HasValue)
             {
                 ApplyBatteryLevel(e.Device.BatteryLevel.Value);
@@ -145,6 +165,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // FR-04: Aktif oturum süresini ekranda canlı güncelle
             var formatted = SessionTimeCalculator.FormatDurationText(activeDuration);
             DashboardVM.TodayConnectionTime = $"{formatted} (Aktif Canlı)";
+            TrayStatusUpdated?.Invoke(this, $"🟢 Bağlı ({formatted})");
         });
     }
 
@@ -153,6 +174,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Application.Current?.Dispatcher?.Invoke(() =>
         {
             HardwareDiagnosticsText = $"Oturum #{session.Id} Başlatıldı ({session.StartedAtUtc.ToLocalTime():HH:mm:ss})";
+
+            if (SettingsVM.NotificationsEnabled)
+            {
+                NotificationRequested?.Invoke(this, (
+                    "🎮 Xbox Kontrolcüsü Bağlandı",
+                    $"{ActiveControllerName} bağlandı. Oturum kaydı başlatıldı."));
+            }
+            TrayStatusUpdated?.Invoke(this, "🟢 Bağlı (Aktif)");
         });
     }
 
@@ -162,6 +191,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             var formatted = SessionTimeCalculator.FormatDurationText(TimeSpan.FromSeconds(session.DurationSeconds));
             HardwareDiagnosticsText = $"Oturum #{session.Id} Kapatıldı (Süre: {formatted})";
+
+            if (SettingsVM.NotificationsEnabled)
+            {
+                NotificationRequested?.Invoke(this, (
+                    "⚪ Kontrolcü Bağlantısı Kesildi",
+                    $"Oturum tamamlandı. Süre: {formatted}"));
+            }
+            TrayStatusUpdated?.Invoke(this, "⚪ Bağlı Değil");
         });
     }
 

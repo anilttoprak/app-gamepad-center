@@ -58,7 +58,7 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBox Grid.Column="0" Text="{Binding DatabasePath}" IsReadOnly="True" Padding="10,8" FontSize="12" Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderLight}"/>
-                        <Button Grid.Column="2" Content="Klasörü Aç" Style="{StaticResource SecondaryButtonStyle}"/>
+                        <Button Grid.Column="2" Content="Klasörü Aç" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenDatabaseFolderCommand}"/>
                     </Grid>
 
                     <TextBlock Text="* Tüm oturum ve pil kayıtlarınız yalnızca bu bilgisayarda saklanır, internete hiçbir veri aktarılmaz." FontSize="11.5" Foreground="{StaticResource BrushSuccess}"/>

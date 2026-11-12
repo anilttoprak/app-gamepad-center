@@ -782,7 +782,7 @@ aktarma.
   5\. Manuel pil yönetimi              Tamamlandı   Manuel pil seviyesi, yeni pil seti kaydı, SQLite geçmişi ve Excel uyumlu CSV dışa aktarımı tamamlandı.
   6\. Analizler ve raporlama           Tamamlandı   Filtreli oturum geçmişi, AnalyticsEngine, dönem toplamları ve oturum CSV dışa aktarımı tamamlandı.
   7\. Pil telemetrisi                  Tamamlandı   BLE GATT (0x180F) telemetrisi, doğruluk/kaynak rozetleri, BatteryChangeDetector ve kullanıcı onaylı öneri motoru tamamlandı.
-  8\. Sistem tepsisi ve başlangıç      Başlanmadı   
+  8\. Sistem tepsisi ve başlangıç      Tamamlandı   Shell_NotifyIconW, Win32 tray menüsü, pencereyi tepsiye küçültme, Windows başlangıç servisi ve toast bildirimleri tamamlandı.
   9\. Paketleme ve yayın               Başlanmadı   
 
 ------------------------------------------------------------------------
