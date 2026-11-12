@@ -5,8 +5,19 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="1000">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="28,24,28,32">
+
+            <!-- Bildirim / Geri Bildirim Banner'ı -->
+            <Border Background="#ECFDF3" BorderBrush="#ABEFC6" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,16"
+                    Visibility="{Binding HasFeedback, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding StatusFeedback}" FontWeight="Medium" Foreground="#067647" FontSize="13"/>
+            </Border>
 
             <!-- Başlık ve Filtreler -->
             <Grid Margin="0,0,0,20">
@@ -21,26 +32,43 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/>
+                    <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" 
+                            Command="{Binding ExportCsvCommand}"/>
                 </StackPanel>
             </Grid>
 
-            <!-- Filtre Sekmeleri -->
+            <!-- Filtre Sekmeleri (FR-06) -->
             <Border Style="{StaticResource CardBorderStyle}" Padding="12,10" Margin="0,0,0,18">
                 <Grid>
                     <StackPanel Orientation="Horizontal">
-                        <RadioButton Content="Tümü" IsChecked="True" Style="{StaticResource NavButtonStyle}" Margin="0,0,8,0"/>
-                        <RadioButton Content="Bugün" Style="{StaticResource NavButtonStyle}" Margin="0,0,8,0"/>
-                        <RadioButton Content="Bu Hafta" Style="{StaticResource NavButtonStyle}" Margin="0,0,8,0"/>
-                        <RadioButton Content="Bu Ay" Style="{StaticResource NavButtonStyle}"/>
+                        <RadioButton Content="Tümü" IsChecked="True" Style="{StaticResource NavButtonStyle}" Margin="0,0,8,0"
+                                     Command="{Binding SetFilterCommand}" CommandParameter="Tümü"/>
+                        <RadioButton Content="Bugün" Style="{StaticResource NavButtonStyle}" Margin="0,0,8,0"
+                                     Command="{Binding SetFilterCommand}" CommandParameter="Bugün"/>
+                        <RadioButton Content="Bu Hafta" Style="{StaticResource NavButtonStyle}" Margin="0,0,8,0"
+                                     Command="{Binding SetFilterCommand}" CommandParameter="Bu Hafta"/>
+                        <RadioButton Content="Bu Ay" Style="{StaticResource NavButtonStyle}"
+                                     Command="{Binding SetFilterCommand}" CommandParameter="Bu Ay"/>
                     </StackPanel>
 
                     <TextBlock Text="{Binding TotalRecordedSessionsText}" FontSize="12.5" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
                 </Grid>
             </Border>
 
-            <!-- Oturum Listesi Kartı -->
-            <Border Style="{StaticResource CardBorderStyle}" Padding="16">
+            <!-- BOŞ DURUM: Filtrede Hiç Oturum Yoksa -->
+            <Border Style="{StaticResource CardBorderStyle}" Padding="32" Margin="0,0,0,24"
+                    Visibility="{Binding IsEmptySessions, Converter={StaticResource BoolToVis}}">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="📋" FontSize="26" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                    <TextBlock Text="Seçilen Filtrede Kayıtlı Oturum Bulunmuyor" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Xbox kontrolcünüz bağlandığında oturum başlangıç ve bitiş kayıtları otomatik olarak buraya eklenecektir." 
+                               FontSize="12.5" Foreground="{StaticResource BrushTextSecondary}" TextAlignment="Center" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Oturum Listesi Tablosu (Gerçek SQLite Kayıtları) -->
+            <Border Style="{StaticResource CardBorderStyle}" Padding="16"
+                    Visibility="{Binding HasSessions, Converter={StaticResource BoolToVis}}">
                 <DataGrid ItemsSource="{Binding Sessions}" AutoGenerateColumns="False" IsReadOnly="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal" Background="Transparent"
                           BorderThickness="0" RowBackground="Transparent" AlternatingRowBackground="#FAFAFC"
@@ -66,10 +94,10 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="50"/>
                         <DataGridTextColumn Header="Tarih" Binding="{Binding Date}" Width="130"/>
-                        <DataGridTextColumn Header="Başlangıç" Binding="{Binding StartTime}" Width="90"/>
-                        <DataGridTextColumn Header="Bitiş" Binding="{Binding EndTime}" Width="90"/>
-                        <DataGridTextColumn Header="Süre" Binding="{Binding Duration}" Width="120"/>
-                        <DataGridTextColumn Header="Bitiş Sebebi" Binding="{Binding EndReason}" Width="160"/>
+                        <DataGridTextColumn Header="Başlangıç" Binding="{Binding StartTime}" Width="100"/>
+                        <DataGridTextColumn Header="Bitiş" Binding="{Binding EndTime}" Width="110"/>
+                        <DataGridTextColumn Header="Bağlantı Süresi" Binding="{Binding Duration}" Width="120"/>
+                        <DataGridTextColumn Header="Bitiş Sebebi" Binding="{Binding EndReason}" Width="170"/>
                         <DataGridTextColumn Header="Durum" Binding="{Binding Status}" Width="*"/>
                     </DataGrid.Columns>
                 </DataGrid>

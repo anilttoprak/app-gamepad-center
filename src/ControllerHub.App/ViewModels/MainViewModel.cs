@@ -75,9 +75,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
             await _sessionTracker.InitializeAsync();
             DashboardVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
             BatteryVM.Initialize(_batteryRepository, _deviceWatcher);
+            SessionsVM.Initialize(_sessionRepository, _sessionTracker);
+            AnalyticsVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
 
             await DashboardVM.RefreshDataAsync();
             await BatteryVM.RefreshDataAsync();
+            await SessionsVM.RefreshDataAsync();
+            await AnalyticsVM.RefreshDataAsync();
 
             HardwareDiagnosticsText = "SQLite (WAL) Hazır | 4s Debounce Aktif";
         }
@@ -85,6 +89,25 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             HardwareDiagnosticsText = $"Başlatma Hatası: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private async Task NavigateAsync(string viewName)
+    {
+        CurrentView = viewName switch
+        {
+            "Dashboard" => DashboardVM,
+            "Sessions" => SessionsVM,
+            "Analytics" => AnalyticsVM,
+            "Battery" => BatteryVM,
+            "Settings" => SettingsVM,
+            _ => DashboardVM
+        };
+
+        if (CurrentView is DashboardViewModel db) await db.RefreshDataAsync();
+        else if (CurrentView is SessionsViewModel sv) await sv.RefreshDataAsync();
+        else if (CurrentView is AnalyticsViewModel av) await av.RefreshDataAsync();
+        else if (CurrentView is BatteryViewModel bv) await bv.RefreshDataAsync();
     }
 
     private void OnDeviceConnectionChanged(object? sender, DeviceConnectionChangedEventArgs e)
@@ -155,20 +178,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         DashboardVM.BatteryLevelText = $"%{percentage}";
         BatteryVM.CurrentPercentage = $"%{percentage}";
         BatteryVM.LastUpdatedText = $"{DateTime.Now:dd MMM yyyy HH:mm:ss} (Bluetooth GATT 0x180F)";
-    }
-
-    [RelayCommand]
-    private void Navigate(string viewName)
-    {
-        CurrentView = viewName switch
-        {
-            "Dashboard" => DashboardVM,
-            "Sessions" => SessionsVM,
-            "Analytics" => AnalyticsVM,
-            "Battery" => BatteryVM,
-            "Settings" => SettingsVM,
-            _ => DashboardVM
-        };
     }
 
     public void Dispose()

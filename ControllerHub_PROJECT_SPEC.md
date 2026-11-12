@@ -780,7 +780,7 @@ aktarma.
   3\. Oturum ve zaman hesaplama        Tamamlandı   SQLite (WAL), oturum kaydı/kurtarma ve gece yarısı süre hesaplama motoru tamamlandı.
   4\. Gerçek verili dashboard          Tamamlandı   Dashboard gerçek SQLite verisine bağlandı, mock banner kaldırıldı, empty state ve canlı sayaç entegre edildi.
   5\. Manuel pil yönetimi              Tamamlandı   Manuel pil seviyesi, yeni pil seti kaydı, SQLite geçmişi ve Excel uyumlu CSV dışa aktarımı tamamlandı.
-  6\. Analizler ve raporlama           Başlanmadı   
+  6\. Analizler ve raporlama           Tamamlandı   Filtreli oturum geçmişi, AnalyticsEngine, dönem toplamları ve oturum CSV dışa aktarımı tamamlandı.
   7\. Pil telemetrisi                  Başlanmadı   
   8\. Sistem tepsisi ve başlangıç      Başlanmadı   
   9\. Paketleme ve yayın               Başlanmadı   

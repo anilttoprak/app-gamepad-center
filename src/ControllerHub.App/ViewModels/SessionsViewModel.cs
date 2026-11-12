@@ -1,30 +1,191 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using ControllerHub.Core.Interfaces;
+using ControllerHub.Core.Models;
+using ControllerHub.Core.Services;
+using ControllerHub.Infrastructure.Export;
+using ControllerHub.Infrastructure.Services;
+using Microsoft.Win32;
 
 namespace ControllerHub.App.ViewModels;
 
-public record MockSessionItem(long Id, string Date, string StartTime, string EndTime, string Duration, string EndReason, string Status);
+public record SessionDisplayItem(
+    long Id,
+    string Date,
+    string StartTime,
+    string EndTime,
+    string Duration,
+    string EndReason,
+    string Status,
+    bool IsActive);
 
 public partial class SessionsViewModel : ViewModelBase
 {
+    private ISessionRepository? _sessionRepository;
+    private SessionTrackerService? _sessionTracker;
+    private List<ControllerSession> _allSessions = new();
+
     public override string Title => "Oturum Geçmişi";
 
     [ObservableProperty]
     private string _selectedFilter = "Tümü";
 
     [ObservableProperty]
-    private string _totalRecordedSessionsText = "Toplam 28 kayıt bulundu";
+    private string _totalRecordedSessionsText = "0 kayıt";
 
-    public ObservableCollection<MockSessionItem> Sessions { get; } = new()
+    [ObservableProperty]
+    private bool _hasSessions = false;
+
+    [ObservableProperty]
+    private bool _isEmptySessions = true;
+
+    [ObservableProperty]
+    private string _statusFeedback = "";
+
+    [ObservableProperty]
+    private bool _hasFeedback = false;
+
+    public ObservableCollection<SessionDisplayItem> Sessions { get; } = new();
+
+    public void Initialize(ISessionRepository sessionRepository, SessionTrackerService sessionTracker)
     {
-        new(28, "12 Kas 2026", "18:20", "20:05", "1 sa 45 dk", "Disconnected", "Tamamlandı"),
-        new(27, "11 Kas 2026", "21:10", "23:40", "2 sa 30 dk", "Disconnected", "Tamamlandı"),
-        new(26, "10 Kas 2026", "19:00", "19:45", "45 dk", "Timeout / Disconnected", "Tamamlandı"),
-        new(25, "09 Kas 2026", "15:30", "18:00", "2 sa 30 dk", "Disconnected", "Tamamlandı"),
-        new(24, "08 Kas 2026", "20:00", "22:15", "2 sa 15 dk", "Disconnected", "Tamamlandı"),
-        new(23, "07 Kas 2026", "14:10", "17:50", "3 sa 40 dk", "Disconnected", "Tamamlandı"),
-        new(22, "06 Kas 2026", "19:30", "20:45", "1 sa 15 dk", "Disconnected", "Tamamlandı"),
-        new(21, "05 Kas 2026", "18:00", "19:10", "1 sa 10 dk", "Disconnected", "Tamamlandı"),
-        new(20, "04 Kas 2026", "21:00", "22:00", "1 sa 00 dk", "Disconnected", "Tamamlandı")
-    };
+        _sessionRepository = sessionRepository;
+        _sessionTracker = sessionTracker;
+    }
+
+    public async Task RefreshDataAsync()
+    {
+        if (_sessionRepository == null) return;
+
+        var sessions = await _sessionRepository.GetRecentSessionsAsync(1000);
+        _allSessions = sessions.ToList();
+
+        ApplyFilter(SelectedFilter);
+    }
+
+    [RelayCommand]
+    private void SetFilter(string filter)
+    {
+        SelectedFilter = filter;
+        ApplyFilter(filter);
+    }
+
+    private void ApplyFilter(string filter)
+    {
+        Sessions.Clear();
+
+        var today = DateTime.Today;
+        int diffToMonday = ((int)today.DayOfWeek + 6) % 7;
+        var startOfWeek = today.AddDays(-diffToMonday);
+        var startOfMonth = new DateTime(today.Year, today.Month, 1);
+
+        var active = _sessionTracker?.ActiveSession;
+
+        // Filtreye göre oturumları seç
+        var filtered = _allSessions.Where(s =>
+        {
+            var sDate = s.StartedAtUtc.ToLocalTime().Date;
+            return filter switch
+            {
+                "Bugün" => sDate == today,
+                "Bu Hafta" => sDate >= startOfWeek && sDate <= today,
+                "Bu Ay" => sDate >= startOfMonth && sDate <= today,
+                _ => true
+            };
+        }).ToList();
+
+        // Varsa aktif oturumu filtreye uyuyorsa en üste ekle
+        if (active != null && active.IsActive)
+        {
+            var activeDate = active.StartedAtUtc.ToLocalTime().Date;
+            bool includeActive = filter switch
+            {
+                "Bugün" => activeDate == today,
+                "Bu Hafta" => activeDate >= startOfWeek,
+                "Bu Ay" => activeDate >= startOfMonth,
+                _ => true
+            };
+
+            if (includeActive)
+            {
+                var duration = active.GetEffectiveDuration(DateTimeOffset.UtcNow);
+                Sessions.Add(new SessionDisplayItem(
+                    Id: active.Id,
+                    Date: "Bugün",
+                    StartTime: active.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss"),
+                    EndTime: "Devam Ediyor",
+                    Duration: SessionTimeCalculator.FormatDurationText(duration),
+                    EndReason: "Aktif Oturum",
+                    Status: "🟢 Devam Ediyor",
+                    IsActive: true));
+            }
+        }
+
+        foreach (var s in filtered)
+        {
+            var startLocal = s.StartedAtUtc.ToLocalTime();
+            var endLocal = s.EndedAtUtc?.ToLocalTime();
+
+            var dateStr = startLocal.Date == today ? "Bugün" :
+                          startLocal.Date == today.AddDays(-1) ? "Dün" :
+                          startLocal.ToString("dd MMM yyyy");
+
+            var endStr = endLocal.HasValue ? endLocal.Value.ToString("HH:mm:ss") : "Bilinmiyor";
+            var durationStr = SessionTimeCalculator.FormatDurationText(TimeSpan.FromSeconds(s.DurationSeconds));
+
+            var reasonStr = s.EndReason switch
+            {
+                SessionEndReason.Disconnected => "Kullanıcı Kapattı / Koptu",
+                SessionEndReason.AppExit => "Uygulama Kapanışı",
+                SessionEndReason.Recovery => "Çökme / Kurtarma",
+                _ => "Bilinmiyor"
+            };
+
+            Sessions.Add(new SessionDisplayItem(
+                Id: s.Id,
+                Date: dateStr,
+                StartTime: startLocal.ToString("HH:mm:ss"),
+                EndTime: endStr,
+                Duration: durationStr,
+                EndReason: reasonStr,
+                Status: "Tamamlandı",
+                IsActive: false));
+        }
+
+        TotalRecordedSessionsText = $"Toplam {Sessions.Count} kayıt bulundu";
+        HasSessions = Sessions.Count > 0;
+        IsEmptySessions = !HasSessions;
+    }
+
+    [RelayCommand]
+    private async Task ExportCsvAsync()
+    {
+        if (_allSessions.Count == 0)
+        {
+            ShowFeedback("⚠️ Dışa aktarılacak kayıtlı oturum bulunamadı.");
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Oturum Geçmişini Kaydet",
+            Filter = "CSV Dosyası (*.csv)|*.csv",
+            FileName = $"Oturum_Gecmisi_{DateTime.Now:yyyyMMdd_HHmm}.csv"
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            var csv = CsvExportService.GenerateSessionsCsv(_allSessions);
+            await CsvExportService.SaveCsvFileAsync(dialog.FileName, csv);
+            ShowFeedback($"✅ Oturum geçmişi '{Path.GetFileName(dialog.FileName)}' olarak kaydedildi!");
+        }
+    }
+
+    private void ShowFeedback(string message)
+    {
+        StatusFeedback = message;
+        HasFeedback = true;
+    }
 }
