@@ -77,6 +77,37 @@ public class SqliteBatteryRepository : IBatteryRepository
         return null;
     }
 
+    public async Task<IReadOnlyList<BatteryReading>> GetRecentReadingsAsync(string deviceKey, int limit = 20)
+    {
+        var list = new List<BatteryReading>();
+        using var conn = _context.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT Id, DeviceKey, RecordedAtUtc, Percentage, Source, Confidence, Note
+            FROM BatteryReadings
+            WHERE DeviceKey = @deviceKey
+            ORDER BY RecordedAtUtc DESC LIMIT @limit;";
+        cmd.Parameters.AddWithValue("@deviceKey", deviceKey);
+        cmd.Parameters.AddWithValue("@limit", limit);
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            list.Add(new BatteryReading
+            {
+                Id = reader.GetInt64(0),
+                DeviceKey = reader.GetString(1),
+                RecordedAtUtc = DateTimeOffset.Parse(reader.GetString(2)),
+                Percentage = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                Source = Enum.TryParse<BatterySource>(reader.GetString(4), out var s) ? s : BatterySource.WindowsApiGatt,
+                Confidence = Enum.TryParse<BatteryConfidence>(reader.GetString(5), out var c) ? c : BatteryConfidence.Exact,
+                Note = reader.IsDBNull(6) ? null : reader.GetString(6)
+            });
+        }
+
+        return list;
+    }
+
     public async Task<IReadOnlyList<BatteryChange>> GetBatteryChangesAsync(int limit = 50)
     {
         var list = new List<BatteryChange>();

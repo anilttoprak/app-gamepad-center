@@ -5,14 +5,33 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="1000">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="28,24,28,32">
 
+            <!-- Bildirim / Geri Bildirim Banner'ı -->
+            <Border Background="#ECFDF3" BorderBrush="#ABEFC6" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,16"
+                    Visibility="{Binding HasFeedback, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding StatusFeedback}" FontWeight="Medium" Foreground="#067647" FontSize="13"/>
+            </Border>
+
             <Grid Margin="0,0,0,20">
-                <StackPanel>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
                     <TextBlock Text="Pil Yönetimi" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
-                    <TextBlock Text="Bluetooth donanımsal pil durumu ve manuel pil değişim kayıtları." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
+                    <TextBlock Text="Bluetooth donanımsal pil durumu, manuel seviye ve pil seti değişim kayıtları." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
                 </StackPanel>
+
+                <Button Grid.Column="1" Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" 
+                        Command="{Binding ExportCsvCommand}" VerticalAlignment="Center"/>
             </Grid>
 
             <!-- Üst Blok: Mevcut Durum ve Pil Değişimi Formu -->
@@ -27,26 +46,39 @@
                 <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
                         <TextBlock Text="Mevcut Pil Seviyesi" FontSize="13" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding CurrentPercentage}" FontSize="42" FontWeight="Bold" Foreground="{StaticResource BrushSuccess}" Margin="0,12,0,4"/>
+                        <TextBlock Text="{Binding CurrentPercentage}" FontSize="42" FontWeight="Bold" Foreground="{StaticResource BrushSuccess}" Margin="0,10,0,4"/>
                         
-                        <!-- Pil Seviye Gösterge Çubuğu -->
+                        <!-- Dinamik Pil Seviye Gösterge Çubuğu -->
                         <Border Height="12" Background="#E2F5EA" CornerRadius="6" Margin="0,6,0,16">
-                            <Border Width="240" HorizontalAlignment="Left" Background="{StaticResource BrushSuccess}" CornerRadius="6"/>
+                            <Border Width="{Binding BatteryLevelBarWidth}" HorizontalAlignment="Left" Background="{StaticResource BrushSuccess}" CornerRadius="6"/>
                         </Border>
 
                         <TextBlock Text="Son Ölçüm Bilgisi:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}"/>
-                        <TextBlock Text="{Binding LastUpdatedText}" FontSize="11.5" Foreground="{StaticResource BrushTextPrimary}" Margin="0,2,0,0"/>
-                        <TextBlock Text="* Kontrolcü bağlıyken doğrudan Bluetooth GATT pil servisinden okunur." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding LastUpdatedText}" FontSize="11.5" Foreground="{StaticResource BrushTextPrimary}" Margin="0,2,0,14"/>
+
+                        <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,14"/>
+
+                        <!-- Manuel Seviye Girme Alanı (FR-07) -->
+                        <TextBlock Text="Manuel Pil Seviyesi Güncelle (%):" FontSize="11.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding ManualPercentageInput, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" FontSize="12.5"/>
+                            <Button Grid.Column="2" Content="Güncelle" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding SaveManualPercentageCommand}"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
-                <!-- Sağ: Pil Değiştirdim Formu -->
+                <!-- Sağ: Pil Değiştirdim Formu (FR-07) -->
                 <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
                         <TextBlock Text="Yeni Pil Seti Kaydet" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,4"/>
                         <TextBlock Text="Kontrolcünün pillerini değiştirdiğinizde buradan yeni bir kullanım döngüsü başlatın." FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,16"/>
 
-                        <Grid Margin="0,0,0,12">
+                        <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="16"/>
@@ -55,26 +87,38 @@
 
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Başlangıç Yüzdesi (%)" FontSize="12" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
-                                <TextBox Text="{Binding NewBatteryPercentage, UpdateSourceTrigger=PropertyChanged}" Padding="10,8" FontSize="13" BorderBrush="{StaticResource BrushBorderMedium}" Background="#FFFFFF"/>
+                                <TextBox Text="{Binding NewBatteryPercentage, UpdateSourceTrigger=PropertyChanged}" Padding="10,8" FontSize="13" BorderBrush="{StaticResource BrushBorderMedium}"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Pil Modeli / Not (Opsiyonel)" FontSize="12" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
-                                <TextBox Text="{Binding BatteryNote, UpdateSourceTrigger=PropertyChanged}" Padding="10,8" FontSize="13" BorderBrush="{StaticResource BrushBorderMedium}" Background="#FFFFFF"/>
+                                <TextBox Text="{Binding BatteryNote, UpdateSourceTrigger=PropertyChanged}" Padding="10,8" FontSize="13" BorderBrush="{StaticResource BrushBorderMedium}"/>
                             </StackPanel>
                         </Grid>
 
-                        <Button Content="💾  Pil Değişimini Kaydet" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left"/>
+                        <Button Content="💾  Pil Değişimini Kaydet" Style="{StaticResource PrimaryButtonStyle}" 
+                                Command="{Binding SaveBatteryChangeCommand}" HorizontalAlignment="Left"/>
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <!-- Alt Blok: Pil Değişim Geçmişi -->
-            <Border Style="{StaticResource CardBorderStyle}">
+            <!-- BOŞ DURUM: Hiç Pil Değişimi Kaydedilmemişse -->
+            <Border Style="{StaticResource CardBorderStyle}" Padding="28" Margin="0,0,0,24"
+                    Visibility="{Binding IsEmptyChanges, Converter={StaticResource BoolToVis}}">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="🔋" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                    <TextBlock Text="Henüz Kaydedilmiş Pil Değişimi Bulunmuyor" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Yeni bir pil seti taktığınızda yukarıdaki formdan 'Pil Değişimini Kaydet' butonuna basarak ilk kaydınızı oluşturabilirsiniz." 
+                               FontSize="12.5" Foreground="{StaticResource BrushTextSecondary}" TextAlignment="Center" Margin="0,4,0,0" MaxWidth="500"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Alt Blok: Gerçek Pil Değişim Geçmişi Tablosu -->
+            <Border Style="{StaticResource CardBorderStyle}" Visibility="{Binding HasChanges, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
                     <Grid Margin="0,0,0,14">
                         <TextBlock Text="Pil Değişim Geçmişi" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
-                        <TextBlock Text="Geçmiş pil seti değişimleri [Mock]" FontSize="12" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        <TextBlock Text="Kalıcı SQLite kayıtları" FontSize="12" Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                     </Grid>
 
                     <DataGrid ItemsSource="{Binding ChangeHistory}" AutoGenerateColumns="False" IsReadOnly="True"
@@ -100,11 +144,12 @@
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="50"/>
                             <DataGridTextColumn Header="Değişim Tarihi" Binding="{Binding Date}" Width="160"/>
-                            <DataGridTextColumn Header="Eski Seviye" Binding="{Binding PreviousPercentage, StringFormat='%{0}'}" Width="100"/>
-                            <DataGridTextColumn Header="Yeni Seviye" Binding="{Binding NewPercentage, StringFormat='%{0}'}" Width="100"/>
+                            <DataGridTextColumn Header="Eski Seviye" Binding="{Binding PreviousLevelText}" Width="100"/>
+                            <DataGridTextColumn Header="Yeni Seviye" Binding="{Binding NewLevelText}" Width="100"/>
                             <DataGridTextColumn Header="Açıklama / Pil Tipi" Binding="{Binding Note}" Width="*"/>
-                            <DataGridTextColumn Header="Kayıt Türü" Binding="{Binding Source}" Width="100"/>
+                            <DataGridTextColumn Header="Kayıt Türü" Binding="{Binding Source}" Width="110"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </StackPanel>
