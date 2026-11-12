@@ -73,6 +73,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         try
         {
             await _sessionTracker.InitializeAsync();
+            DashboardVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
+            await DashboardVM.RefreshDataAsync();
             HardwareDiagnosticsText = "SQLite (WAL) Hazır | 4s Debounce Aktif";
         }
         catch (Exception ex)

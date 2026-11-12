@@ -94,13 +94,18 @@ public static class SessionTimeCalculator
     }
 
     /// <summary>
-    /// Süreyi kullanıcı dostu Türkçe metne dönüştürür (Örn: "2 sa 45 dk", "35 dk", "12 sn").
+    /// Süreyi kullanıcı dostu Türkçe metne dönüştürür (Örn: "2 sa 45 dk", "35 dk", "12 sn", "0 dk").
     /// </summary>
     public static string FormatDurationText(TimeSpan duration)
     {
+        if (duration <= TimeSpan.Zero)
+        {
+            return "0 dk";
+        }
+
         if (duration.TotalMinutes < 1)
         {
-            return $"{Math.Max(0, duration.Seconds)} sn";
+            return $"{Math.Max(1, duration.Seconds)} sn";
         }
 
         var hours = (int)duration.TotalHours;

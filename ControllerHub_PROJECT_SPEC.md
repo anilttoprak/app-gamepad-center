@@ -778,7 +778,7 @@ aktarma.
   1\. Proje iskeleti ve UI prototipi   Tamamlandı   Solution, 4 katmanlı mimari, MVVM, beyaz tema ve 5 ekran prototipi tamamlandı.
   2\. Gerçek bağlantı algılama         Tamamlandı   Windows PnP ve WinRT BLE watcher kuruldu, 4s debounce ve 10 döngü doğrulaması test edildi.
   3\. Oturum ve zaman hesaplama        Tamamlandı   SQLite (WAL), oturum kaydı/kurtarma ve gece yarısı süre hesaplama motoru tamamlandı.
-  4\. Gerçek verili dashboard          Başlanmadı   
+  4\. Gerçek verili dashboard          Tamamlandı   Dashboard gerçek SQLite verisine bağlandı, mock banner kaldırıldı, empty state ve canlı sayaç entegre edildi.
   5\. Manuel pil yönetimi              Başlanmadı   
   6\. Analizler ve raporlama           Başlanmadı   
   7\. Pil telemetrisi                  Başlanmadı   

@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ControllerHub.Core\ControllerHub.Core.csproj" />
     <ProjectReference Include="..\..\src\ControllerHub.Infrastructure\ControllerHub.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\ControllerHub.App\ControllerHub.App.csproj" />
   </ItemGroup>
 
 </Project>
