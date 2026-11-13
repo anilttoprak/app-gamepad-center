@@ -141,7 +141,9 @@ public class SqliteBatteryRepository : IBatteryRepository
     {
         using var conn = _context.CreateConnection();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM BatteryChanges WHERE Id = @id;";
+        cmd.CommandText = @"
+            DELETE FROM BatteryChanges WHERE Id = @id;
+            UPDATE sqlite_sequence SET seq = 0 WHERE name = 'BatteryChanges' AND (SELECT COUNT(*) FROM BatteryChanges) = 0;";
         cmd.Parameters.AddWithValue("@id", id);
         var rows = await cmd.ExecuteNonQueryAsync();
         return rows > 0;
