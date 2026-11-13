@@ -136,4 +136,14 @@ public class SqliteBatteryRepository : IBatteryRepository
 
         return list;
     }
+
+    public async Task<bool> DeleteBatteryChangeAsync(long id)
+    {
+        using var conn = _context.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM BatteryChanges WHERE Id = @id;";
+        cmd.Parameters.AddWithValue("@id", id);
+        var rows = await cmd.ExecuteNonQueryAsync();
+        return rows > 0;
+    }
 }

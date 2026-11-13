@@ -144,6 +144,41 @@
                 </Border>
             </Grid>
 
+            <!-- Pil Performans & Döngü Analizi Kartları -->
+            <Grid Margin="0,0,0,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Mevcut Pil Seti Oynama Süresi" FontSize="12" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding ActiveBatteryUsageText}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushSuccess}" Margin="0,6,0,2" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Son pil değişiminden bu yana" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Ortalama Pil Seti Ömrü" FontSize="12" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding AverageBatteryDurationText}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,6,0,2" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Tamamlanan setlerin ortalaması" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="4" Style="{StaticResource CardBorderStyle}" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="En Uzun Dayanan Pil Seti" FontSize="12" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding BestBatterySetText}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,6,0,2" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Tek setteki en yüksek oynama süresi" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
             <!-- BOŞ DURUM: Hiç Pil Değişimi Kaydedilmemişse -->
             <Border Style="{StaticResource CardBorderStyle}" Padding="28" Margin="0,0,0,24"
                     Visibility="{Binding IsEmptyChanges, Converter={StaticResource BoolToVis}}">
@@ -187,11 +222,23 @@
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="45"/>
-                            <DataGridTextColumn Header="Değişim Tarihi" Binding="{Binding Date}" Width="150"/>
-                            <DataGridTextColumn Header="Eski Seviye" Binding="{Binding PreviousLevelText}" Width="90"/>
-                            <DataGridTextColumn Header="Yeni Seviye" Binding="{Binding NewLevelText}" Width="90"/>
-                            <DataGridTextColumn Header="Açıklama / Pil Tipi" Binding="{Binding Note}" Width="*"/>
-                            <DataGridTextColumn Header="Kayıt Türü" Binding="{Binding Source}" Width="140"/>
+                            <DataGridTextColumn Header="Değişim Tarihi" Binding="{Binding Date}" Width="135"/>
+                            <DataGridTextColumn Header="Eski" Binding="{Binding PreviousLevelText}" Width="65"/>
+                            <DataGridTextColumn Header="Yeni" Binding="{Binding NewLevelText}" Width="65"/>
+                            <DataGridTextColumn Header="Pil Modeli / Not" Binding="{Binding Note}" Width="*"/>
+                            <DataGridTextColumn Header="Performans (Süre &amp; Oturum)" Binding="{Binding PerformanceText}" Width="185"/>
+                            <DataGridTextColumn Header="Kayıt Türü" Binding="{Binding Source}" Width="100"/>
+                            <DataGridTemplateColumn Header="İşlem" Width="75">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="🗑️ Sil" Style="{StaticResource SecondaryButtonStyle}"
+                                                Padding="6,2" FontSize="11" Foreground="#DC4C64" BorderBrush="#FECDD3" Background="#FFF5F5"
+                                                Command="{Binding DataContext.DeleteBatteryChangeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding Id}"
+                                                ToolTip="Bu pil kaydını geçmişten sil"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                 </StackPanel>

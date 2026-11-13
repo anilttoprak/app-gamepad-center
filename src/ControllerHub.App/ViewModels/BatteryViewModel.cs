@@ -6,6 +6,7 @@ using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
 using ControllerHub.Core.Services;
 using ControllerHub.Infrastructure.Export;
+using ControllerHub.Infrastructure.Services;
 using Microsoft.Win32;
 
 namespace ControllerHub.App.ViewModels;
@@ -16,12 +17,16 @@ public record BatteryChangeDisplayItem(
     string PreviousLevelText,
     string NewLevelText,
     string Note,
-    string Source);
+    string Source,
+    string PerformanceText,
+    int SessionCount);
 
 public partial class BatteryViewModel : ViewModelBase
 {
     private IBatteryRepository? _batteryRepository;
     private IDeviceWatcherService? _deviceWatcher;
+    private ISessionRepository? _sessionRepository;
+    private SessionTrackerService? _sessionTracker;
     private int? _lastKnownPercentage;
     private readonly BatteryChangeDetector _changeDetector = new();
     private BatteryChangeProposal? _activeProposal;
@@ -42,6 +47,15 @@ public partial class BatteryViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _confidenceBadge = "Belirsiz";
+
+    [ObservableProperty]
+    private string _activeBatteryUsageText = "0 dk (Henüz oturum yok)";
+
+    [ObservableProperty]
+    private string _averageBatteryDurationText = "Veri yetersiz (En az 1 değişim gerekli)";
+
+    [ObservableProperty]
+    private string _bestBatterySetText = "Henüz rekor bulunmuyor";
 
     [ObservableProperty]
     private bool _hasPendingProposal = false;
@@ -80,10 +94,16 @@ public partial class BatteryViewModel : ViewModelBase
 
     public BatteryChangeProposal? ActiveProposal => _activeProposal;
 
-    public void Initialize(IBatteryRepository batteryRepository, IDeviceWatcherService deviceWatcher)
+    public void Initialize(
+        IBatteryRepository batteryRepository,
+        IDeviceWatcherService deviceWatcher,
+        ISessionRepository? sessionRepository = null,
+        SessionTrackerService? sessionTracker = null)
     {
         _batteryRepository = batteryRepository;
         _deviceWatcher = deviceWatcher;
+        _sessionRepository = sessionRepository;
+        _sessionTracker = sessionTracker;
     }
 
     public async Task RefreshDataAsync()
@@ -102,8 +122,14 @@ public partial class BatteryViewModel : ViewModelBase
                 _deviceWatcher?.CurrentDevice.IsConnected ?? false);
         }
 
-        // 2. Pil değişim geçmişini veritabanından çek
+        // 2. Pil değişim geçmişini ve oturum verilerini çekerek pil performansı analizini hesapla
         var changes = await _batteryRepository.GetBatteryChangesAsync(100);
+        var sessions = _sessionRepository != null ? await _sessionRepository.GetRecentSessionsAsync(1000) : Array.Empty<ControllerSession>();
+        var activeSession = _sessionTracker?.ActiveSession;
+
+        var performance = BatteryCycleCalculator.ComputePerformance(sessions, changes, activeSession, DateTimeOffset.UtcNow);
+        var cycleMap = performance.Cycles.Where(c => c.ChangeId.HasValue).ToDictionary(c => c.ChangeId!.Value);
+
         ChangeHistory.Clear();
 
         foreach (var c in changes)
@@ -112,17 +138,61 @@ public partial class BatteryViewModel : ViewModelBase
             var newText = c.NewPercentage.HasValue ? $"%{c.NewPercentage.Value}" : "-";
             var dateText = c.ChangedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm");
 
+            string perfText;
+            int sessCount = 0;
+            if (cycleMap.TryGetValue(c.Id, out var cycleStats))
+            {
+                sessCount = cycleStats.SessionCount;
+                perfText = cycleStats.IsActiveCycle
+                    ? $"{cycleStats.DurationFormatted} (Aktif Pil - {sessCount} oturum)"
+                    : $"{cycleStats.DurationFormatted} ({sessCount} oturum)";
+            }
+            else
+            {
+                perfText = "-";
+            }
+
             ChangeHistory.Add(new BatteryChangeDisplayItem(
                 c.Id,
                 dateText,
                 prevText,
                 newText,
                 string.IsNullOrWhiteSpace(c.Note) ? "Not belirtilmedi" : c.Note,
-                c.ChangeType));
+                c.ChangeType,
+                perfText,
+                sessCount));
         }
 
         HasChanges = ChangeHistory.Count > 0;
         IsEmptyChanges = !HasChanges;
+
+        // 3. Pil Performans Özeti Metrikleri
+        if (performance.ActiveCycle != null)
+        {
+            ActiveBatteryUsageText = $"{performance.ActiveCycle.DurationFormatted} ({performance.ActiveCycle.SessionCount} oturum)";
+        }
+        else
+        {
+            ActiveBatteryUsageText = "0 dk (Henüz oturum yok)";
+        }
+
+        if (performance.AverageDurationPerCycle > TimeSpan.Zero)
+        {
+            AverageBatteryDurationText = SessionTimeCalculator.FormatDurationText(performance.AverageDurationPerCycle);
+        }
+        else
+        {
+            AverageBatteryDurationText = "Veri yetersiz (En az 1 tamamlanmış döngü)";
+        }
+
+        if (performance.BestCycle != null && performance.BestCycle.TotalUsageDuration > TimeSpan.Zero)
+        {
+            BestBatterySetText = $"{performance.BestCycle.DurationFormatted} ({performance.BestCycle.BatteryName})";
+        }
+        else
+        {
+            BestBatterySetText = "Henüz rekor bulunmuyor";
+        }
     }
 
     public void UpdateCurrentPercentage(
@@ -256,6 +326,19 @@ public partial class BatteryViewModel : ViewModelBase
 
         UpdateCurrentPercentage(clamped, now, BatterySource.Manual, BatteryConfidence.Exact, true);
         ShowFeedback($"✅ Pil seviyesi manuel olarak %{clamped} olarak güncellendi.");
+    }
+
+    [RelayCommand]
+    public async Task DeleteBatteryChangeAsync(long id)
+    {
+        if (_batteryRepository == null) return;
+
+        var success = await _batteryRepository.DeleteBatteryChangeAsync(id);
+        if (success)
+        {
+            await RefreshDataAsync();
+            ShowFeedback("🗑️ Pil değişim kaydı başarıyla silindi.");
+        }
     }
 
     [RelayCommand]

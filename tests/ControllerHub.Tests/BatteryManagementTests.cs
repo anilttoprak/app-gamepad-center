@@ -48,6 +48,112 @@ public class BatteryManagementTests : IDisposable
     }
 
     [Fact]
+    public async Task BatteryChange_Delete_ShouldRemoveRecordFromDatabase()
+    {
+        var change = new BatteryChange
+        {
+            DeviceKey = "XBOX_TEST",
+            ChangedAtUtc = DateTimeOffset.UtcNow,
+            PreviousPercentage = 50,
+            NewPercentage = 100,
+            Note = "Yanlış Kayıt",
+            ChangeType = "Manuel"
+        };
+
+        await _repo.RecordBatteryChangeAsync(change);
+        var list = await _repo.GetBatteryChangesAsync(10);
+        Assert.Single(list);
+
+        var success = await _repo.DeleteBatteryChangeAsync(list[0].Id);
+        Assert.True(success);
+
+        var afterDelete = await _repo.GetBatteryChangesAsync(10);
+        Assert.Empty(afterDelete);
+    }
+
+    [Fact]
+    public void BatteryCycleCalculator_ShouldCalculateAccurateCycleUsageAndSessions()
+    {
+        var nowUtc = new DateTimeOffset(2026, 11, 13, 15, 0, 0, TimeSpan.Zero);
+
+        // 2 adet pil değişimi:
+        // C1: 3 gün önce takıldı (Duracell Ultra)
+        var c1 = new BatteryChange
+        {
+            Id = 1,
+            DeviceKey = "XBOX_TEST",
+            ChangedAtUtc = nowUtc.AddDays(-3),
+            Note = "Duracell Ultra AA",
+            NewPercentage = 100
+        };
+
+        // C2: 1 gün önce takıldı (Eneloop Pro - Aktif set)
+        var c2 = new BatteryChange
+        {
+            Id = 2,
+            DeviceKey = "XBOX_TEST",
+            ChangedAtUtc = nowUtc.AddDays(-1),
+            Note = "Eneloop Pro",
+            NewPercentage = 100
+        };
+
+        // Oturumlar:
+        // C1 döngüsünde 2 oturum: 2 saat + 1 saat = 3 saat
+        var s1 = new ControllerSession
+        {
+            Id = 1,
+            DeviceKey = "XBOX_TEST",
+            StartedAtUtc = nowUtc.AddDays(-2).AddHours(-4),
+            EndedAtUtc = nowUtc.AddDays(-2).AddHours(-2),
+            DurationSeconds = 7200
+        };
+        var s2 = new ControllerSession
+        {
+            Id = 2,
+            DeviceKey = "XBOX_TEST",
+            StartedAtUtc = nowUtc.AddDays(-2),
+            EndedAtUtc = nowUtc.AddDays(-2).AddHours(1),
+            DurationSeconds = 3600
+        };
+
+        // C2 döngüsünde 1 oturum: 45 dk (2700 sn)
+        var s3 = new ControllerSession
+        {
+            Id = 3,
+            DeviceKey = "XBOX_TEST",
+            StartedAtUtc = nowUtc.AddHours(-2),
+            EndedAtUtc = nowUtc.AddHours(-1).AddMinutes(-15),
+            DurationSeconds = 2700
+        };
+
+        var sessions = new List<ControllerSession> { s1, s2, s3 };
+        var changes = new List<BatteryChange> { c1, c2 };
+
+        var perf = ControllerHub.Core.Services.BatteryCycleCalculator.ComputePerformance(sessions, changes, null, nowUtc);
+
+        Assert.Equal(2, perf.Cycles.Count);
+
+        // C1 döngüsü (Tamamlanmış)
+        var cycle1 = perf.Cycles.First(c => c.ChangeId == 1);
+        Assert.False(cycle1.IsActiveCycle);
+        Assert.Equal(TimeSpan.FromHours(3), cycle1.TotalUsageDuration);
+        Assert.Equal(2, cycle1.SessionCount);
+
+        // C2 döngüsü (Aktif)
+        var cycle2 = perf.Cycles.First(c => c.ChangeId == 2);
+        Assert.True(cycle2.IsActiveCycle);
+        Assert.Equal(TimeSpan.FromMinutes(45), cycle2.TotalUsageDuration);
+        Assert.Equal(1, cycle2.SessionCount);
+
+        // Ortalama tamamlanan pil ömrü = 3 saat
+        Assert.Equal(TimeSpan.FromHours(3), perf.AverageDurationPerCycle);
+
+        // En iyi pil seti = Duracell Ultra (3 saat)
+        Assert.NotNull(perf.BestCycle);
+        Assert.Equal(1, perf.BestCycle.ChangeId);
+    }
+
+    [Fact]
     public async Task BatteryChanges_CsvExport_ShouldIncludeUtf8BomAndCorrectFormatting()
     {
         var changes = new[]
