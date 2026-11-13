@@ -159,9 +159,15 @@ public partial class SettingsViewModel : ViewModelBase
                 var shortMac = key[9..];
                 defaultName = $"Xbox Wireless Controller ({shortMac})";
             }
+            else if (key.StartsWith("BT_") && key.Length > 3)
+            {
+                var shortMac = key[3..];
+                var displayMac = shortMac.Length > 4 ? shortMac[^4..] : shortMac;
+                defaultName = $"Wireless Controller ({displayMac})";
+            }
             else
             {
-                defaultName = "Xbox Wireless Controller";
+                defaultName = "Kablosuz Kontrolcü";
             }
 
             string currentAlias = customNames.TryGetValue(key, out var alias) ? alias : "";

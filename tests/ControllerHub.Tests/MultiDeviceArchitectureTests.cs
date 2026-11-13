@@ -305,4 +305,107 @@ public class MultiDeviceArchitectureTests : IDisposable
         // Henüz tamamlanmış bir pil döngüsü olmadığı için ortalama süre yetersiz olmalı
         Assert.Null(report.EstimatedHoursPerBatterySet);
     }
+
+    [Fact]
+    public void BluetoothClassic_ExtractMacAddress_ValidatesFormats()
+    {
+        string pnpAepId = "Bluetooth#Bluetooth68:c6:ac:a2:e6:7a-8c:41:f2:27:e9:b0";
+        string extracted1 = ControllerHub.Infrastructure.DeviceDetection.BluetoothClassicDeviceWatcher.ExtractMacAddress(pnpAepId);
+        Assert.Equal("8C41F227E9B0", extracted1);
+
+        string devId = @"BTHENUM\DEV_8C41F227E9B0\7&3B90B3AE&0&BLUETOOTHDEVICE_8C41F227E9B0";
+        string extracted2 = ControllerHub.Infrastructure.DeviceDetection.BluetoothClassicDeviceWatcher.ExtractMacAddress(devId);
+        Assert.Equal("8C41F227E9B0", extracted2);
+    }
+
+    [Fact]
+    public void BluetoothClassic_DebounceTransitions_SessionStartedAndEnded()
+    {
+        var target = new ControllerHub.Infrastructure.DeviceDetection.TrackedClassicBtTarget(
+            "Bluetooth#dev1",
+            "8C41F227E9B0",
+            "Wireless Controller");
+
+        var now = DateTimeOffset.UtcNow;
+
+        // 1. Başlangıçta Disconnected
+        Assert.Equal(DeviceConnectionState.Disconnected, target.DeviceInfo.State);
+
+        // 2. Ham sinyal geldi ama henüz 500ms dolmadı -> Connecting
+        target.RawPresentSignal = true;
+        var (state1, action1) = target.DebouncePolicy.Evaluate(target.RawPresentSignal, now);
+        Assert.Equal(DeviceConnectionState.Connecting, state1);
+        Assert.Equal(DebounceAction.None, action1);
+
+        // 3. 500ms sonra -> Connected & SessionStarted
+        var (state2, action2) = target.DebouncePolicy.Evaluate(target.RawPresentSignal, now.AddMilliseconds(501));
+        Assert.Equal(DeviceConnectionState.Connected, state2);
+        Assert.Equal(DebounceAction.SessionStarted, action2);
+
+        // 4. Sinyal koptu -> 4 saniye grace period içinde Disconnecting
+        target.RawPresentSignal = false;
+        var (state3, action3) = target.DebouncePolicy.Evaluate(target.RawPresentSignal, now.AddSeconds(2));
+        Assert.Equal(DeviceConnectionState.Disconnecting, state3);
+        Assert.Equal(DebounceAction.None, action3);
+
+        // 5. 4 saniye doldu -> Disconnected & SessionEnded
+        var (state4, action4) = target.DebouncePolicy.Evaluate(target.RawPresentSignal, now.AddSeconds(6));
+        Assert.Equal(DeviceConnectionState.Disconnected, state4);
+        Assert.Equal(DebounceAction.SessionEnded, action4);
+    }
+
+    [Fact]
+    public void CompositeDeviceWatcher_AggregatesBleAndClassicBtControllers()
+    {
+        var mockBle = new MockWatcherService();
+        var mockClassic = new ControllerHub.Infrastructure.DeviceDetection.BluetoothClassicDeviceWatcher();
+        var mockXinput = new ControllerHub.Infrastructure.DeviceDetection.XInputDeviceWatcher();
+
+        using var composite = new ControllerHub.Infrastructure.DeviceDetection.CompositeDeviceWatcher(
+            mockBle,
+            mockClassic,
+            mockXinput);
+
+        // BLE cihazı bağla
+        mockBle.SimulateDeviceConnected(new DeviceInfo
+        {
+            DeviceKey = "XBOX_BLE_112233",
+            Name = "Xbox Wireless Controller",
+            State = DeviceConnectionState.Connected,
+            ConnectionType = ControllerConnectionType.Bluetooth
+        });
+
+        // Composite listesinde BLE cihazı bulunmalı
+        var list = composite.ConnectedDevices;
+        Assert.Single(list);
+        Assert.Equal("XBOX_BLE_112233", list[0].DeviceKey);
+    }
+
+    [Fact]
+    public async Task BluetoothClassic_LiveDiscovery_DiscoversConnectedWirelessController()
+    {
+        var watcher = new ControllerHub.Infrastructure.DeviceDetection.BluetoothClassicDeviceWatcher();
+        await watcher.DiscoverTargetDevicesAsync();
+        await watcher.CheckDeviceStatesAsync();
+
+        // 500ms debounce için tick
+        var now = DateTimeOffset.UtcNow;
+        watcher.EvaluateDebounce(now);
+        watcher.EvaluateDebounce(now.AddMilliseconds(600));
+
+        Console.WriteLine($"Connected Classic Devices Count: {watcher.ConnectedDevices.Count}");
+        foreach (var dev in watcher.ConnectedDevices)
+        {
+            Console.WriteLine($"LIVE CONNECTED: {dev.Name} [{dev.DeviceKey}] - State: {dev.State}");
+        }
+
+        // Eğer kullanıcı kolda bağlıysa doğrula
+        if (watcher.ConnectedDevices.Count > 0)
+        {
+            var dev = watcher.ConnectedDevices[0];
+            Assert.Contains("Wireless Controller", dev.Name);
+            Assert.StartsWith("BT_", dev.DeviceKey);
+            Assert.Equal(DeviceConnectionState.Connected, dev.State);
+        }
+    }
 }

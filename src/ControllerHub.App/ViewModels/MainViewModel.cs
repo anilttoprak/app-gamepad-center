@@ -266,6 +266,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 DashboardVM.BatterySourceText = "USB Sürekli Güç (Kablolu)";
                 DashboardVM.BatteryConfidenceBadge = "Kablolu Bağlantı";
             }
+            else
+            {
+                DashboardVM.BatteryLevelText = "🎮";
+                DashboardVM.BatterySourceText = "Bluetooth Classic / Standart HID";
+                DashboardVM.BatteryConfidenceBadge = "Kablosuz Bağlantı";
+            }
         });
     }
 
@@ -287,7 +293,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             if (SettingsVM.NotificationsEnabled)
             {
                 NotificationRequested?.Invoke(this, (
-                    "🎮 Xbox Kontrolcüsü Bağlandı",
+                    "🎮 Kontrolcü Bağlandı",
                     $"{ActiveControllerName} bağlandı. Oturum kaydı başlatıldı."));
             }
             TrayStatusUpdated?.Invoke(this, "🟢 Bağlı (Aktif)");
@@ -364,9 +370,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 var shortMac = key[9..];
                 name = $"Xbox Wireless Controller ({shortMac})";
             }
+            else if (key.StartsWith("BT_") && key.Length > 3)
+            {
+                var shortMac = key[3..];
+                var displayMac = shortMac.Length > 4 ? shortMac[^4..] : shortMac;
+                name = $"Wireless Controller ({displayMac})";
+            }
             else
             {
-                name = "Xbox Wireless Controller";
+                name = "Kablosuz Kontrolcü";
             }
 
             list.Add(new ControllerFilterOption(key, $"🎮 {name}"));
