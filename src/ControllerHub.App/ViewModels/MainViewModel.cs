@@ -342,20 +342,39 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public void Dispose()
+    public async Task ShutdownGracefullyAsync(CancellationToken cancellationToken = default)
     {
-        if (!_disposed)
-        {
-            _disposed = true;
-            _deviceWatcher.ConnectionChanged -= OnDeviceConnectionChanged;
-            _deviceWatcher.BatteryLevelUpdated -= OnBatteryLevelUpdated;
-            _sessionTracker.ActiveSessionTicked -= OnActiveSessionTicked;
-            _sessionTracker.SessionStarted -= OnSessionStarted;
-            _sessionTracker.SessionEnded -= OnSessionEnded;
+        if (_disposed) return;
+        _disposed = true;
 
-            _sessionTracker.ShutdownAsync().GetAwaiter().GetResult();
+        _deviceWatcher.ConnectionChanged -= OnDeviceConnectionChanged;
+        _deviceWatcher.BatteryLevelUpdated -= OnBatteryLevelUpdated;
+        _sessionTracker.ActiveSessionTicked -= OnActiveSessionTicked;
+        _sessionTracker.SessionStarted -= OnSessionStarted;
+        _sessionTracker.SessionEnded -= OnSessionEnded;
+
+        try
+        {
+            await _sessionTracker.ShutdownAsync();
+        }
+        catch { }
+
+        try
+        {
             _sessionTracker.Dispose();
+        }
+        catch { }
+
+        try
+        {
+            await _deviceWatcher.StopAsync();
             _deviceWatcher.Dispose();
         }
+        catch { }
+    }
+
+    public void Dispose()
+    {
+        _ = ShutdownGracefullyAsync();
     }
 }

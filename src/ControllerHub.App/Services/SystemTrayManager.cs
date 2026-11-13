@@ -77,6 +77,11 @@ public class SystemTrayManager : IDisposable
     [DllImport("user32.dll")]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private const int SW_RESTORE = 9;
+
     private readonly Window _window;
     private readonly Action _onExitRequested;
     private NOTIFYICONDATA _notifyData;
@@ -161,7 +166,18 @@ public class SystemTrayManager : IDisposable
         {
             _window.WindowState = WindowState.Normal;
         }
+
+        var helper = new WindowInteropHelper(_window);
+        if (helper.Handle != IntPtr.Zero)
+        {
+            ShowWindow(helper.Handle, SW_RESTORE);
+            SetForegroundWindow(helper.Handle);
+        }
+
         _window.Activate();
+        _window.Topmost = true;
+        _window.Topmost = false;
+        _window.Focus();
     }
 
     private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -204,7 +220,11 @@ public class SystemTrayManager : IDisposable
             Header = "Controller Hub'ı Göster",
             FontWeight = FontWeights.SemiBold
         };
-        showItem.Click += (_, _) => RestoreWindow();
+        showItem.Click += (_, _) =>
+        {
+            menu.IsOpen = false;
+            RestoreWindow();
+        };
         menu.Items.Add(showItem);
 
         // 2. Durum Rozeti (Tıklanamaz bilgi maddesi)
@@ -222,7 +242,11 @@ public class SystemTrayManager : IDisposable
         {
             Header = "Çıkış"
         };
-        exitItem.Click += (_, _) => _onExitRequested();
+        exitItem.Click += (_, _) =>
+        {
+            menu.IsOpen = false;
+            _onExitRequested();
+        };
         menu.Items.Add(exitItem);
 
         menu.IsOpen = true;

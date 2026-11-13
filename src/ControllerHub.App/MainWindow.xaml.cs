@@ -27,6 +27,12 @@ public partial class MainWindow : Window
     {
         _trayManager.Initialize();
 
+        // Uygulama açıldığında pencereyi en öne getir ve odakla
+        Activate();
+        Topmost = true;
+        Topmost = false;
+        Focus();
+
         _viewModel.NotificationRequested += (_, notification) =>
         {
             _trayManager.ShowNotification(notification.Title, notification.Message);
@@ -62,8 +68,23 @@ public partial class MainWindow : Window
 
     private void PerformExit()
     {
+        // 1. Arayüzü ve sistem tepsisi menüsünü ANINDA kaldır
+        Hide();
         _trayManager.Dispose();
-        _viewModel.Dispose();
-        Application.Current.Shutdown();
+
+        // 2. Açık oturumları arka planda kaydedip 500ms içinde süreci tamamen sonlandır
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+                await _viewModel.ShutdownGracefullyAsync(cts.Token);
+            }
+            catch { }
+            finally
+            {
+                Environment.Exit(0);
+            }
+        });
     }
 }

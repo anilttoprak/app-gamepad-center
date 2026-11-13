@@ -10,7 +10,7 @@ namespace ControllerHub.Infrastructure.DeviceDetection;
 
 public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 {
-    private class TrackedBleTarget
+    private class TrackedBleTarget : IDisposable
     {
         public ulong MacAddress { get; }
         public string DeviceId { get; set; }
@@ -19,6 +19,7 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         public ConnectionDebouncePolicy DebouncePolicy { get; }
         public bool RawPresentSignal { get; set; }
         public GattCharacteristic? BatteryCharacteristic { get; set; }
+        public BluetoothLEDevice? BleDevice { get; set; }
 
         public TrackedBleTarget(ulong mac, string deviceId, string name)
         {
@@ -33,6 +34,16 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                 ConnectionType = ControllerConnectionType.Bluetooth
             };
             DebouncePolicy = new ConnectionDebouncePolicy(TimeSpan.FromSeconds(4), TimeSpan.FromMilliseconds(500));
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                BleDevice?.Dispose();
+            }
+            catch { }
+            BleDevice = null;
         }
     }
 
@@ -154,7 +165,19 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                             {
                                 if (!_trackedDevices.TryGetValue(mac, out var target))
                                 {
-                                    target = new TrackedBleTarget(mac, d.Id, d.Name);
+                                    target = new TrackedBleTarget(mac, d.Id, d.Name)
+                                    {
+                                        BleDevice = ble
+                                    };
+                                    target.RawPresentSignal = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                                    ble.ConnectionStatusChanged += (sender, args) =>
+                                    {
+                                        lock (_syncLock)
+                                        {
+                                            target.RawPresentSignal = sender.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                                        }
+                                        EvaluateDebounce(DateTimeOffset.UtcNow);
+                                    };
                                     _trackedDevices[mac] = target;
                                 }
                                 else
@@ -162,6 +185,19 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                                     target.DeviceId = d.Id;
                                     target.Name = d.Name;
                                     target.DeviceInfo.Name = d.Name;
+                                    if (target.BleDevice == null)
+                                    {
+                                        target.BleDevice = ble;
+                                        target.RawPresentSignal = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                                        ble.ConnectionStatusChanged += (sender, args) =>
+                                        {
+                                            lock (_syncLock)
+                                            {
+                                                target.RawPresentSignal = sender.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                                            }
+                                            EvaluateDebounce(DateTimeOffset.UtcNow);
+                                        };
+                                    }
                                 }
                             }
                         }
@@ -272,10 +308,27 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
             bool isPresentNow = false;
             try
             {
-                var ble = await BluetoothLEDevice.FromBluetoothAddressAsync(target.MacAddress);
-                if (ble != null)
+                if (target.BleDevice != null)
                 {
-                    isPresentNow = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                    isPresentNow = target.BleDevice.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                }
+                else
+                {
+                    var ble = await BluetoothLEDevice.FromIdAsync(target.DeviceId);
+                    if (ble != null)
+                    {
+                        target.BleDevice = ble;
+                        target.RawPresentSignal = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                        ble.ConnectionStatusChanged += (sender, args) =>
+                        {
+                            lock (_syncLock)
+                            {
+                                target.RawPresentSignal = sender.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                            }
+                            EvaluateDebounce(DateTimeOffset.UtcNow);
+                        };
+                        isPresentNow = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                    }
                 }
             }
             catch
@@ -443,21 +496,18 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         if (!_disposed)
         {
             _disposed = true;
+            _pollingCts?.Cancel();
+            _pollingCts?.Dispose();
+            StopDeviceWatcherSafely();
+
             lock (_syncLock)
             {
                 foreach (var target in _trackedDevices.Values)
                 {
-                    if (target.BatteryCharacteristic != null)
-                    {
-                        try { target.BatteryCharacteristic.ValueChanged -= OnBatteryCharacteristicValueChanged; } catch { }
-                        target.BatteryCharacteristic = null;
-                    }
+                    target.Dispose();
                 }
                 _trackedDevices.Clear();
             }
-            _pollingCts?.Cancel();
-            _pollingCts?.Dispose();
-            StopDeviceWatcherSafely();
         }
     }
 }
