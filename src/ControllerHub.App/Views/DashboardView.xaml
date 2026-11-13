@@ -21,6 +21,12 @@
                 </StackPanel>
             </Grid>
 
+            <!-- Geri Bildirim Banner'ı (Örn: CSV Dışa Aktarıldı) -->
+            <Border Background="#ECFDF3" BorderBrush="#ABEFC6" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,16"
+                    Visibility="{Binding HasFeedback, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding StatusFeedback}" FontWeight="Medium" Foreground="#067647" FontSize="13"/>
+            </Border>
+
             <!-- Olası Pil Değişimi Bildirimi (Aşama 7) -->
             <Border Background="#F0F9FF" BorderBrush="#B2DDFF" BorderThickness="1.5" CornerRadius="8" Padding="14,10" Margin="0,0,0,16"
                     Visibility="{Binding HasBatteryProposal, Converter={StaticResource BoolToVis}}">
@@ -152,9 +158,9 @@
                     <StackPanel>
                         <TextBlock Text="Hızlı İşlemler" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
 
-                        <Button Content="🔋  Pil Değiştirdim" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                        <Button Content="📋  Tüm Oturumları Gör" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                        <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,20"/>
+                        <Button Content="🔋  Pil Değiştirdim" Command="{Binding NavigateBatteryCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                        <Button Content="📋  Tüm Oturumları Gör" Command="{Binding ViewAllSessionsCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                        <Button Content="💾  CSV Dışa Aktar" Command="{Binding ExportCsvCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,20"/>
 
                         <Border Background="{StaticResource BrushBackgroundPage}" CornerRadius="8" Padding="12" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1">
                             <StackPanel>

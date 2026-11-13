@@ -1,9 +1,13 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
 using ControllerHub.Core.Services;
+using ControllerHub.Infrastructure.Export;
 using ControllerHub.Infrastructure.Services;
+using Microsoft.Win32;
 
 namespace ControllerHub.App.ViewModels;
 
@@ -38,13 +42,19 @@ public partial class DashboardViewModel : ViewModelBase
     private string _batterySourceText = "Bluetooth GATT (0x180F)";
 
     [ObservableProperty]
-    private string _batteryConfidenceBadge = "Tam Hassasiyet (%1)";
+    private string _batteryConfidenceBadge = "Kademeli Donanım Ölçümü";
 
     [ObservableProperty]
     private bool _hasBatteryProposal = false;
 
     [ObservableProperty]
     private string _batteryProposalText = "";
+
+    [ObservableProperty]
+    private string _statusFeedback = "";
+
+    [ObservableProperty]
+    private bool _hasFeedback = false;
 
     [ObservableProperty]
     private string _totalSessionsCount = "0";
@@ -66,6 +76,51 @@ public partial class DashboardViewModel : ViewModelBase
 
     public ObservableCollection<DayActivityItem> WeeklyActivity { get; } = new();
     public ObservableCollection<RecentSessionItem> RecentSessions { get; } = new();
+
+    public event EventHandler<string>? NavigationRequested;
+
+    [RelayCommand]
+    private void ViewAllSessions()
+    {
+        NavigationRequested?.Invoke(this, "Sessions");
+    }
+
+    [RelayCommand]
+    private void NavigateBattery()
+    {
+        NavigationRequested?.Invoke(this, "Battery");
+    }
+
+    [RelayCommand]
+    private async Task ExportCsvAsync()
+    {
+        var completedSessions = _cachedSessions.Where(s => s.EndedAtUtc.HasValue).ToList();
+        if (completedSessions.Count == 0)
+        {
+            ShowFeedback("⚠️ Dışa aktarılacak kayıtlı oturum bulunamadı.");
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Oturum Geçmişini Kaydet",
+            Filter = "CSV Dosyası (*.csv)|*.csv",
+            FileName = $"Oturum_Gecmisi_{DateTime.Now:yyyyMMdd_HHmm}.csv"
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            var csv = CsvExportService.GenerateSessionsCsv(completedSessions);
+            await CsvExportService.SaveCsvFileAsync(dialog.FileName, csv);
+            ShowFeedback($"✅ Oturum geçmişi '{Path.GetFileName(dialog.FileName)}' olarak kaydedildi!");
+        }
+    }
+
+    private void ShowFeedback(string message)
+    {
+        StatusFeedback = message;
+        HasFeedback = true;
+    }
 
     public void Initialize(
         ISessionRepository sessionRepository,
@@ -125,7 +180,7 @@ public partial class DashboardViewModel : ViewModelBase
                     ? "Bluetooth GATT (0x180F)"
                     : (latestBattery.Source == BatterySource.Manual ? "Manuel Giriş" : "XInput");
                 BatteryConfidenceBadge = latestBattery.Confidence == BatteryConfidence.Exact
-                    ? "Tam Hassasiyet (%1)"
+                    ? "Kademeli Donanım Ölçümü"
                     : "Kaba Hassasiyet";
             }
         }

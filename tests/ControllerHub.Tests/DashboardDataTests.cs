@@ -141,6 +141,27 @@ public class DashboardDataTests : IDisposable
         Assert.DoesNotContain(sessionsVm.Sessions, s => s.EndReason == "Bilinmiyor");
     }
 
+    [Fact]
+    public void Dashboard_QuickActionCommands_ShouldTriggerNavigationAndHandleEmptyExport()
+    {
+        var vm = new DashboardViewModel();
+        string? navigatedTarget = null;
+        vm.NavigationRequested += (_, target) => navigatedTarget = target;
+
+        // 1. Tüm Oturumları Gör
+        vm.ViewAllSessionsCommand.Execute(null);
+        Assert.Equal("Sessions", navigatedTarget);
+
+        // 2. Pil Değiştirdim
+        vm.NavigateBatteryCommand.Execute(null);
+        Assert.Equal("Battery", navigatedTarget);
+
+        // 3. Oturum yokken CSV Dışa Aktar basıldığında uyarı geri bildirimi vermeli
+        vm.ExportCsvCommand.Execute(null);
+        Assert.True(vm.HasFeedback);
+        Assert.Contains("bulunamadı", vm.StatusFeedback);
+    }
+
     private class DummyDeviceWatcher : IDeviceWatcherService
     {
         public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged;

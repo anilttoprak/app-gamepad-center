@@ -17,6 +17,7 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 
     private DeviceWatcher? _deviceWatcher;
     private CancellationTokenSource? _pollingCts;
+    private GattCharacteristic? _batteryCharacteristic;
     private ulong? _discoveredMac;
     private string? _discoveredDeviceId;
     private bool _rawPresentSignal;
@@ -154,10 +155,17 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
     private async Task RunPollingLoopAsync(CancellationToken token)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        int batteryCheckCounter = 0;
         while (!token.IsCancellationRequested && await timer.WaitForNextTickAsync(token))
         {
             await CheckDeviceStateAsync();
             EvaluateDebounce(DateTimeOffset.UtcNow);
+
+            // Bağlıyken her 60 saniyede bir taze donanımsal pil okuması yap
+            if (_currentDevice.IsConnected && ++batteryCheckCounter % 60 == 0)
+            {
+                _ = RefreshBatteryAsync(DateTimeOffset.UtcNow);
+            }
         }
     }
 
@@ -216,6 +224,11 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
             else if (newState == DeviceConnectionState.Disconnected)
             {
                 _currentDevice.BatteryLevel = null;
+                if (_batteryCharacteristic != null)
+                {
+                    try { _batteryCharacteristic.ValueChanged -= OnBatteryCharacteristicValueChanged; } catch { }
+                    _batteryCharacteristic = null;
+                }
             }
 
             ConnectionChanged?.Invoke(this, new DeviceConnectionChangedEventArgs(
@@ -241,30 +254,71 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                 var chResult = await svcResult.Services[0].GetCharacteristicsForUuidAsync(GattCharacteristicUuids.BatteryLevel);
                 if (chResult.Status == GattCommunicationStatus.Success && chResult.Characteristics.Count > 0)
                 {
-                    var readResult = await chResult.Characteristics[0].ReadValueAsync();
+                    var ch = chResult.Characteristics[0];
+
+                    // 1. Doğrudan donanımdan taze (Uncached) okumayı dene, yanıt alınamazsa önbelleğe dön
+                    var readResult = await ch.ReadValueAsync(BluetoothCacheMode.Uncached);
+                    if (readResult.Status != GattCommunicationStatus.Success)
+                    {
+                        readResult = await ch.ReadValueAsync(BluetoothCacheMode.Cached);
+                    }
+
                     if (readResult.Status == GattCommunicationStatus.Success)
                     {
                         byte[] bytes = readResult.Value.ToArray();
                         if (bytes.Length > 0)
                         {
-                            int rawPct = bytes[0];
-                            var validation = _batteryPolicy.ValidateReading(
-                                isDeviceConnected: true,
-                                rawPercentage: rawPct,
-                                nowUtc: nowUtc);
+                            ProcessRawBatteryReading(bytes[0], nowUtc);
+                        }
+                    }
 
-                            if (validation.IsValid && validation.Percentage.HasValue)
+                    // 2. Kontrolcünün canlı pil bildirimlerine (GATT Notify) abone ol
+                    if (_batteryCharacteristic == null && ch.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))
+                    {
+                        try
+                        {
+                            var cccdStatus = await ch.WriteClientCharacteristicConfigurationDescriptorAsync(
+                                GattClientCharacteristicConfigurationDescriptorValue.Notify);
+                            if (cccdStatus == GattCommunicationStatus.Success)
                             {
-                                _currentDevice.BatteryLevel = validation.Percentage.Value;
-                                _currentDevice.BatteryLastUpdatedAt = nowUtc;
-                                BatteryLevelUpdated?.Invoke(this, validation.Percentage.Value);
+                                _batteryCharacteristic = ch;
+                                _batteryCharacteristic.ValueChanged += OnBatteryCharacteristicValueChanged;
                             }
                         }
+                        catch { }
                     }
                 }
             }
         }
         catch { }
+    }
+
+    private void OnBatteryCharacteristicValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
+    {
+        try
+        {
+            byte[] bytes = args.CharacteristicValue.ToArray();
+            if (bytes.Length > 0)
+            {
+                ProcessRawBatteryReading(bytes[0], DateTimeOffset.UtcNow);
+            }
+        }
+        catch { }
+    }
+
+    private void ProcessRawBatteryReading(int rawPct, DateTimeOffset nowUtc)
+    {
+        var validation = _batteryPolicy.ValidateReading(
+            isDeviceConnected: true,
+            rawPercentage: rawPct,
+            nowUtc: nowUtc);
+
+        if (validation.IsValid && validation.Percentage.HasValue)
+        {
+            _currentDevice.BatteryLevel = validation.Percentage.Value;
+            _currentDevice.BatteryLastUpdatedAt = nowUtc;
+            BatteryLevelUpdated?.Invoke(this, validation.Percentage.Value);
+        }
     }
 
     private static bool IsXboxControllerName(string? name)
@@ -279,6 +333,11 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         if (!_disposed)
         {
             _disposed = true;
+            if (_batteryCharacteristic != null)
+            {
+                try { _batteryCharacteristic.ValueChanged -= OnBatteryCharacteristicValueChanged; } catch { }
+                _batteryCharacteristic = null;
+            }
             _pollingCts?.Cancel();
             _pollingCts?.Dispose();
             _deviceWatcher?.Stop();

@@ -83,6 +83,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             await _sessionTracker.InitializeAsync();
             DashboardVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
+            DashboardVM.NavigationRequested += async (_, target) => await NavigateAsync(target);
             BatteryVM.Initialize(_batteryRepository, _deviceWatcher);
             SessionsVM.Initialize(_sessionRepository, _sessionTracker);
             AnalyticsVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
@@ -219,7 +220,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         DashboardVM.BatteryLevelText = $"%{percentage}";
         DashboardVM.BatterySourceText = "Bluetooth GATT (0x180F)";
-        DashboardVM.BatteryConfidenceBadge = "Tam Hassasiyet (%1)";
+        DashboardVM.BatteryConfidenceBadge = "Kademeli Donanım Ölçümü";
 
         if (BatteryVM.HasPendingProposal)
         {

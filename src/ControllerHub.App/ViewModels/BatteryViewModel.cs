@@ -159,7 +159,7 @@ public partial class BatteryViewModel : ViewModelBase
 
         ConfidenceDescription = confidence switch
         {
-            BatteryConfidence.Exact => "Tam Hassasiyet (%1)",
+            BatteryConfidence.Exact => "Kademeli Donanım Ölçümü",
             BatteryConfidence.Coarse => "Kaba Seviye",
             _ => "Belirsiz"
         };

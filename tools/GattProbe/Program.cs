@@ -38,11 +38,23 @@ try
                     var chResult = await svcResult.Services[0].GetCharacteristicsForUuidAsync(GattCharacteristicUuids.BatteryLevel);
                     if (chResult.Status == GattCommunicationStatus.Success && chResult.Characteristics.Count > 0)
                     {
-                        var read = await chResult.Characteristics[0].ReadValueAsync();
-                        if (read.Status == GattCommunicationStatus.Success)
+                        var ch = chResult.Characteristics[0];
+                        Console.WriteLine($"  Özellikler: {ch.CharacteristicProperties}");
+
+                        var readCached = await ch.ReadValueAsync(BluetoothCacheMode.Cached);
+                        if (readCached.Status == GattCommunicationStatus.Success)
                         {
-                            byte[] val = read.Value.ToArray();
-                            Console.WriteLine($"  >>> OKUNAN PİL: %{val[0]} <<<");
+                            Console.WriteLine($"  >>> Önbellekten Okunan Pil: %{readCached.Value.ToArray()[0]} <<<");
+                        }
+
+                        try
+                        {
+                            var readUncached = await ch.ReadValueAsync(BluetoothCacheMode.Uncached);
+                            Console.WriteLine($"  >>> Canlı Donanımdan Okunan Pil: %{readUncached.Value.ToArray()[0]} (Durum: {readUncached.Status}) <<<");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"  Uncached okuma hatası: {ex.Message}");
                         }
                     }
                 }
