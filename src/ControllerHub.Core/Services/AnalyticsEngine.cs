@@ -148,7 +148,7 @@ public static class AnalyticsEngine
             ThisWeekTotal: TimeSpan.FromSeconds(weekSeconds),
             ThisMonthTotal: TimeSpan.FromSeconds(monthSeconds),
             ThisYearTotal: TimeSpan.FromSeconds(yearSeconds),
-            TotalSessionsCount: sessions.Count + (activeSession != null ? 1 : 0),
+            TotalSessionsCount: sessions.Count(s => s.EndedAtUtc.HasValue) + (activeSession != null && activeSession.IsActive ? 1 : 0),
             TotalBatteryChangesCount: batteryChanges.Count,
             EstimatedHoursPerBatterySet: hoursPerSet);
     }

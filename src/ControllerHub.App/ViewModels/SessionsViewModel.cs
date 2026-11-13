@@ -53,6 +53,21 @@ public partial class SessionsViewModel : ViewModelBase
     {
         _sessionRepository = sessionRepository;
         _sessionTracker = sessionTracker;
+        _sessionTracker.SessionStarted += async (_, _) => await RefreshDataAsync();
+        _sessionTracker.SessionEnded += async (_, _) => await RefreshDataAsync();
+        _sessionTracker.ActiveSessionTicked += OnActiveSessionTicked;
+    }
+
+    private void OnActiveSessionTicked(object? sender, TimeSpan activeDuration)
+    {
+        System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+        {
+            if (Sessions.Count > 0 && Sessions[0].IsActive)
+            {
+                var first = Sessions[0];
+                Sessions[0] = first with { Duration = SessionTimeCalculator.FormatDurationText(activeDuration) };
+            }
+        });
     }
 
     public async Task RefreshDataAsync()
@@ -83,9 +98,11 @@ public partial class SessionsViewModel : ViewModelBase
 
         var active = _sessionTracker?.ActiveSession;
 
-        // Filtreye göre oturumları seç
+        // Filtreye göre tamamlanmış oturumları seç (Aktif oturum s.EndedAtUtc == null olduğu için geçmiş listesine girmez)
         var filtered = _allSessions.Where(s =>
         {
+            if (!s.EndedAtUtc.HasValue) return false;
+
             var sDate = s.StartedAtUtc.ToLocalTime().Date;
             return filter switch
             {
@@ -126,13 +143,13 @@ public partial class SessionsViewModel : ViewModelBase
         foreach (var s in filtered)
         {
             var startLocal = s.StartedAtUtc.ToLocalTime();
-            var endLocal = s.EndedAtUtc?.ToLocalTime();
+            var endLocal = s.EndedAtUtc!.Value.ToLocalTime();
 
             var dateStr = startLocal.Date == today ? "Bugün" :
                           startLocal.Date == today.AddDays(-1) ? "Dün" :
                           startLocal.ToString("dd MMM yyyy");
 
-            var endStr = endLocal.HasValue ? endLocal.Value.ToString("HH:mm:ss") : "Bilinmiyor";
+            var endStr = endLocal.ToString("HH:mm:ss");
             var durationStr = SessionTimeCalculator.FormatDurationText(TimeSpan.FromSeconds(s.DurationSeconds));
 
             var reasonStr = s.EndReason switch
@@ -177,7 +194,8 @@ public partial class SessionsViewModel : ViewModelBase
 
         if (dialog.ShowDialog() == true)
         {
-            var csv = CsvExportService.GenerateSessionsCsv(_allSessions);
+            var completedSessions = _allSessions.Where(s => s.EndedAtUtc.HasValue);
+            var csv = CsvExportService.GenerateSessionsCsv(completedSessions);
             await CsvExportService.SaveCsvFileAsync(dialog.FileName, csv);
             ShowFeedback($"✅ Oturum geçmişi '{Path.GetFileName(dialog.FileName)}' olarak kaydedildi!");
         }

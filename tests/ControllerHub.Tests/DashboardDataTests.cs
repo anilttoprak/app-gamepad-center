@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using ControllerHub.App.ViewModels;
 using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
+using ControllerHub.Core.Policies;
 using ControllerHub.Infrastructure.Persistence;
 using ControllerHub.Infrastructure.Services;
 using Xunit;
@@ -81,13 +82,77 @@ public class DashboardDataTests : IDisposable
         Assert.Equal(1.25, Math.Round(weeklyHoursSum, 2));
     }
 
+    [Fact]
+    public async Task Dashboard_ActiveSession_ShouldNotDuplicateAsGhostSessionOrInflateTotalCount()
+    {
+        // 2 adet tamamlanmış oturum ekle
+        var s1Start = DateTimeOffset.UtcNow.AddHours(-3);
+        await _sessionRepo.StartSessionAsync("XBOX_TEST", s1Start);
+        await _sessionRepo.EndSessionAsync("XBOX_TEST", s1Start.AddMinutes(30), SessionEndReason.Disconnected);
+
+        var s2Start = DateTimeOffset.UtcNow.AddHours(-2);
+        await _sessionRepo.StartSessionAsync("XBOX_TEST", s2Start);
+        await _sessionRepo.EndSessionAsync("XBOX_TEST", s2Start.AddMinutes(45), SessionEndReason.Disconnected);
+
+        var dummyWatcher = new DummyDeviceWatcher();
+        var tracker = new SessionTrackerService(dummyWatcher, _sessionRepo, _batteryRepo);
+        await tracker.InitializeAsync();
+
+        // 1 adet aktif oturum başlat (Veritabanına EndedAtUtc = null olarak yazılır ve tracker'da aktiftir)
+        dummyWatcher.TriggerConnection(new DeviceConnectionChangedEventArgs(
+            DeviceConnectionState.Connected,
+            new DeviceInfo { DeviceKey = "XBOX_TEST", Name = "Xbox Controller" },
+            DebounceAction.SessionStarted,
+            DateTimeOffset.UtcNow));
+
+        // SQLite insert ve event akışının tamamlanması için kısa bekleme
+        await Task.Delay(100);
+
+        var dashboardVm = new DashboardViewModel();
+        dashboardVm.Initialize(_sessionRepo, _batteryRepo, tracker);
+        await dashboardVm.RefreshDataAsync();
+
+        // Toplam oturum sayısı 2 tamamlanmış + 1 aktif = 3 olmalı (Asla 4 olmamalı)
+        Assert.Equal("3", dashboardVm.TotalSessionsCount);
+
+        // Son oturumlar tablosunda tam 3 satır olmalı (1 aktif + 2 tamamlanmış)
+        Assert.Equal(3, dashboardVm.RecentSessions.Count);
+
+        // İlk satır aktif oturum olmalı
+        Assert.True(dashboardVm.RecentSessions[0].IsActive);
+        Assert.Equal("Aktif Oturum", dashboardVm.RecentSessions[0].Reason);
+
+        // İkinci ve üçüncü satırlar tamamlanmış oturumlar olmalı
+        Assert.False(dashboardVm.RecentSessions[1].IsActive);
+        Assert.False(dashboardVm.RecentSessions[2].IsActive);
+
+        // "Bilinmiyor" şeklinde hayalet / çift oturum satırı OLMAMALI
+        Assert.DoesNotContain(dashboardVm.RecentSessions, s => s.Reason == "Bilinmiyor");
+        Assert.DoesNotContain(dashboardVm.RecentSessions, s => s.TimeRange.EndsWith("Bilinmiyor"));
+
+        // SessionsViewModel için de kontrol et
+        var sessionsVm = new SessionsViewModel();
+        sessionsVm.Initialize(_sessionRepo, tracker);
+        await sessionsVm.RefreshDataAsync();
+
+        Assert.Equal(3, sessionsVm.Sessions.Count);
+        Assert.Equal("Toplam 3 kayıt bulundu", sessionsVm.TotalRecordedSessionsText);
+        Assert.DoesNotContain(sessionsVm.Sessions, s => s.EndTime == "Bilinmiyor");
+        Assert.DoesNotContain(sessionsVm.Sessions, s => s.EndReason == "Bilinmiyor");
+    }
+
     private class DummyDeviceWatcher : IDeviceWatcherService
     {
-        public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged { add { } remove { } }
+        public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged;
         public event EventHandler<int>? BatteryLevelUpdated { add { } remove { } }
 
-        public DeviceInfo CurrentDevice { get; } = new() { DeviceKey = "DUMMY", Name = "Dummy" };
+        public DeviceInfo CurrentDevice { get; } = new() { DeviceKey = "XBOX_TEST", Name = "Xbox Controller" };
         public bool IsRunning => false;
+
+        public void TriggerConnection(DeviceConnectionChangedEventArgs args)
+        {
+            ConnectionChanged?.Invoke(this, args);
+        }
 
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task StopAsync() => Task.CompletedTask;

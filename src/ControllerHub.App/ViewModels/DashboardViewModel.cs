@@ -100,8 +100,9 @@ public partial class DashboardViewModel : ViewModelBase
         var todayDuration = SessionTimeCalculator.CalculateDayDuration(_cachedSessions, activeSession, todayLocal, TimeZoneInfo.Local, nowUtc);
         TodayConnectionTime = SessionTimeCalculator.FormatDurationText(todayDuration);
 
-        // 3. Toplam Oturum Sayısı
-        int totalCount = _cachedSessions.Count + (activeSession != null && activeSession.IsActive ? 1 : 0);
+        // 3. Toplam Oturum Sayısı (Yalnızca tamamlanmış oturumlar + varsa 1 aktif oturum)
+        int completedCount = _cachedSessions.Count(s => s.EndedAtUtc.HasValue);
+        int totalCount = completedCount + (activeSession != null && activeSession.IsActive ? 1 : 0);
         TotalSessionsCount = totalCount.ToString();
 
         HasSessions = totalCount > 0;
@@ -174,18 +175,17 @@ public partial class DashboardViewModel : ViewModelBase
                 IsActive: true));
         }
 
-        foreach (var s in _cachedSessions.Take(activeSession != null ? 4 : 5))
+        var completedSessions = _cachedSessions.Where(s => s.EndedAtUtc.HasValue).ToList();
+        foreach (var s in completedSessions.Take(activeSession != null && activeSession.IsActive ? 4 : 5))
         {
             var startLocal = s.StartedAtUtc.ToLocalTime();
-            var endLocal = s.EndedAtUtc?.ToLocalTime();
+            var endLocal = s.EndedAtUtc!.Value.ToLocalTime();
 
             var dateStr = startLocal.Date == DateTime.Today ? "Bugün" :
                           startLocal.Date == DateTime.Today.AddDays(-1) ? "Dün" :
                           startLocal.ToString("dd MMM yyyy");
 
-            var timeRangeStr = endLocal.HasValue ?
-                $"{startLocal:HH:mm} - {endLocal.Value:HH:mm}" :
-                $"{startLocal:HH:mm} - Bilinmiyor";
+            var timeRangeStr = $"{startLocal:HH:mm} - {endLocal:HH:mm}";
 
             var reasonStr = s.EndReason switch
             {
