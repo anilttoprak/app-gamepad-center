@@ -10,7 +10,7 @@ namespace ControllerHub.Infrastructure.DeviceDetection;
 
 public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 {
-    private class TrackedBleTarget : IDisposable
+    private class TrackedBleTarget
     {
         public ulong MacAddress { get; }
         public string DeviceId { get; set; }
@@ -19,7 +19,6 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         public ConnectionDebouncePolicy DebouncePolicy { get; }
         public bool RawPresentSignal { get; set; }
         public GattCharacteristic? BatteryCharacteristic { get; set; }
-        public BluetoothLEDevice? BleDevice { get; set; }
 
         public TrackedBleTarget(ulong mac, string deviceId, string name)
         {
@@ -34,16 +33,6 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                 ConnectionType = ControllerConnectionType.Bluetooth
             };
             DebouncePolicy = new ConnectionDebouncePolicy(TimeSpan.FromSeconds(4), TimeSpan.FromMilliseconds(500));
-        }
-
-        public void Dispose()
-        {
-            try
-            {
-                BleDevice?.Dispose();
-            }
-            catch { }
-            BleDevice = null;
         }
     }
 
@@ -112,10 +101,10 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         // 1. Eşleştirilmiş tüm Bluetooth LE kontrolcülerini keşfet
         await DiscoverTargetDevicesAsync();
 
-        // 2. Windows PnP DeviceWatcher başlat
+        // 2. Windows PnP DeviceWatcher başlat (Sadece hedef cihazların tak/çıkar olaylarını izler)
         StartPnpDeviceWatcher();
 
-        // 3. Arka plan periyodik doğrulama ve Debounce tick döngüsü (her 1 saniyede bir)
+        // 3. Düzenli 1 saniyelik periyodik durum doğrulama ve Debounce tick döngüsü
         _pollingCts = new CancellationTokenSource();
         _ = RunPollingLoopAsync(_pollingCts.Token);
     }
@@ -165,19 +154,7 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                             {
                                 if (!_trackedDevices.TryGetValue(mac, out var target))
                                 {
-                                    target = new TrackedBleTarget(mac, d.Id, d.Name)
-                                    {
-                                        BleDevice = ble
-                                    };
-                                    target.RawPresentSignal = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                                    ble.ConnectionStatusChanged += (sender, args) =>
-                                    {
-                                        lock (_syncLock)
-                                        {
-                                            target.RawPresentSignal = sender.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                                        }
-                                        EvaluateDebounce(DateTimeOffset.UtcNow);
-                                    };
+                                    target = new TrackedBleTarget(mac, d.Id, d.Name);
                                     _trackedDevices[mac] = target;
                                 }
                                 else
@@ -185,21 +162,9 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                                     target.DeviceId = d.Id;
                                     target.Name = d.Name;
                                     target.DeviceInfo.Name = d.Name;
-                                    if (target.BleDevice == null)
-                                    {
-                                        target.BleDevice = ble;
-                                        target.RawPresentSignal = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                                        ble.ConnectionStatusChanged += (sender, args) =>
-                                        {
-                                            lock (_syncLock)
-                                            {
-                                                target.RawPresentSignal = sender.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                                            }
-                                            EvaluateDebounce(DateTimeOffset.UtcNow);
-                                        };
-                                    }
                                 }
                             }
+                            ble.Dispose();
                         }
                     }
                     catch { }
@@ -216,8 +181,8 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
             string aqs = BluetoothLEDevice.GetDeviceSelectorFromPairingState(true);
             _deviceWatcher = DeviceInformation.CreateWatcher(aqs);
 
-            _deviceWatcher.Added += OnDeviceWatcherAddedOrUpdated;
-            _deviceWatcher.Updated += OnDeviceWatcherAddedOrUpdated;
+            _deviceWatcher.Added += OnDeviceWatcherAdded;
+            _deviceWatcher.Updated += OnDeviceWatcherUpdated;
             _deviceWatcher.Removed += OnDeviceWatcherRemoved;
 
             _deviceWatcher.Start();
@@ -225,22 +190,32 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         catch { }
     }
 
-    private void OnDeviceWatcherAddedOrUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
-    {
-        _ = Task.Run(async () =>
-        {
-            await CheckDeviceStateAsync();
-            EvaluateDebounce(DateTimeOffset.UtcNow);
-        });
-    }
-
-    private void OnDeviceWatcherAddedOrUpdated(DeviceWatcher sender, DeviceInformation info)
+    private void OnDeviceWatcherAdded(DeviceWatcher sender, DeviceInformation info)
     {
         if (IsXboxControllerName(info.Name))
         {
             _ = Task.Run(async () =>
             {
                 await DiscoverTargetDevicesAsync();
+                await CheckDeviceStateAsync();
+                EvaluateDebounce(DateTimeOffset.UtcNow);
+            });
+        }
+    }
+
+    private void OnDeviceWatcherUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
+    {
+        // Yalnızca kayıtlı kollarımızdan birine ait güncelleme geldiyse kontrol et (diğer BLE paketlerini yoksay)
+        bool isOurDevice;
+        lock (_syncLock)
+        {
+            isOurDevice = _trackedDevices.Values.Any(t => t.DeviceId == update.Id);
+        }
+
+        if (isOurDevice)
+        {
+            _ = Task.Run(async () =>
+            {
                 await CheckDeviceStateAsync();
                 EvaluateDebounce(DateTimeOffset.UtcNow);
             });
@@ -308,27 +283,11 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
             bool isPresentNow = false;
             try
             {
-                if (target.BleDevice != null)
+                var ble = await BluetoothLEDevice.FromBluetoothAddressAsync(target.MacAddress);
+                if (ble != null)
                 {
-                    isPresentNow = target.BleDevice.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                }
-                else
-                {
-                    var ble = await BluetoothLEDevice.FromIdAsync(target.DeviceId);
-                    if (ble != null)
-                    {
-                        target.BleDevice = ble;
-                        target.RawPresentSignal = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                        ble.ConnectionStatusChanged += (sender, args) =>
-                        {
-                            lock (_syncLock)
-                            {
-                                target.RawPresentSignal = sender.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                            }
-                            EvaluateDebounce(DateTimeOffset.UtcNow);
-                        };
-                        isPresentNow = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                    }
+                    isPresentNow = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                    ble.Dispose();
                 }
             }
             catch
@@ -395,7 +354,11 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         try
         {
             var ble = await BluetoothLEDevice.FromBluetoothAddressAsync(target.MacAddress);
-            if (ble == null || ble.ConnectionStatus != BluetoothConnectionStatus.Connected) return;
+            if (ble == null || ble.ConnectionStatus != BluetoothConnectionStatus.Connected)
+            {
+                ble?.Dispose();
+                return;
+            }
 
             var svcResult = await ble.GetGattServicesForUuidAsync(GattServiceUuids.Battery);
             if (svcResult.Status == GattCommunicationStatus.Success && svcResult.Services.Count > 0)
@@ -504,7 +467,11 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
             {
                 foreach (var target in _trackedDevices.Values)
                 {
-                    target.Dispose();
+                    if (target.BatteryCharacteristic != null)
+                    {
+                        try { target.BatteryCharacteristic.ValueChanged -= OnBatteryCharacteristicValueChanged; } catch { }
+                        target.BatteryCharacteristic = null;
+                    }
                 }
                 _trackedDevices.Clear();
             }

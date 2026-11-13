@@ -213,7 +213,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnDeviceConnectionChanged(object? sender, DeviceConnectionChangedEventArgs e)
     {
-        Application.Current?.Dispatcher?.Invoke(() =>
+        Application.Current?.Dispatcher?.BeginInvoke(() =>
         {
             var connectedList = _deviceWatcher.ConnectedDevices;
             IsDeviceConnected = connectedList.Count > 0;
@@ -270,7 +270,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnActiveSessionTicked(object? sender, TimeSpan activeDuration)
     {
-        Application.Current?.Dispatcher?.Invoke(() =>
+        Application.Current?.Dispatcher?.BeginInvoke(() =>
         {
             var formatted = SessionTimeCalculator.FormatDurationText(activeDuration);
             TrayStatusUpdated?.Invoke(this, $"🟢 Bağlı ({formatted})");
@@ -279,7 +279,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnSessionStarted(object? sender, ControllerSession session)
     {
-        Application.Current?.Dispatcher?.Invoke(() =>
+        Application.Current?.Dispatcher?.BeginInvoke(() =>
         {
             HardwareDiagnosticsText = $"Oturum #{session.Id} Başlatıldı ({session.StartedAtUtc.ToLocalTime():HH:mm:ss})";
 
@@ -295,7 +295,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnSessionEnded(object? sender, ControllerSession session)
     {
-        Application.Current?.Dispatcher?.Invoke(() =>
+        Application.Current?.Dispatcher?.BeginInvoke(() =>
         {
             var formatted = SessionTimeCalculator.FormatDurationText(TimeSpan.FromSeconds(session.DurationSeconds));
             HardwareDiagnosticsText = $"Oturum #{session.Id} Kapatıldı (Süre: {formatted})";
@@ -312,7 +312,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnBatteryLevelUpdated(object? sender, int batteryPercentage)
     {
-        Application.Current?.Dispatcher?.Invoke(() =>
+        Application.Current?.Dispatcher?.BeginInvoke(() =>
         {
             ApplyBatteryLevel(batteryPercentage);
         });
