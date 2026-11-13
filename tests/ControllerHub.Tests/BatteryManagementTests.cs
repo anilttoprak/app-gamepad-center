@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
+using ControllerHub.Core.Policies;
 using ControllerHub.Infrastructure.Export;
 using ControllerHub.Infrastructure.Persistence;
 using Xunit;
@@ -255,6 +256,37 @@ public class BatteryManagementTests : IDisposable
     }
 
     [Fact]
+    public void BatteryViewModel_ConnectionWarmup_TransientDipAndRise_DoesNotTriggerFalseProposal()
+    {
+        var dummyWatcher = new DummyDeviceWatcher();
+        var vm = new ControllerHub.App.ViewModels.BatteryViewModel();
+        vm.Initialize(_repo, dummyWatcher);
+
+        var now = DateTimeOffset.UtcNow;
+
+        // 1. Önceki oturumda kol %100 seviyesindedir
+        vm.UpdateCurrentPercentage(100, now.AddHours(-1), BatterySource.WindowsApiGatt, BatteryConfidence.Exact, true, "XBOX_ANIL");
+        Assert.False(vm.HasPendingProposal);
+
+        // 2. Kol bağlanır (ConnectionChanged tetiklenir)
+        dummyWatcher.TriggerConnection(new DeviceConnectionChangedEventArgs(
+            DeviceConnectionState.Connected,
+            new DeviceInfo { DeviceKey = "XBOX_ANIL", Name = "Xbox Controller" },
+            DebounceAction.SessionStarted,
+            now));
+
+        // 3. İlk saniyede geçici / varsayılan %50 okuması gelir (ısınma süreci)
+        vm.UpdateCurrentPercentage(50, now.AddSeconds(1), BatterySource.WindowsApiGatt, BatteryConfidence.Exact, true, "XBOX_ANIL");
+        Assert.False(vm.HasPendingProposal);
+
+        // 4. 2 saniye sonra donanımdan gerçek %100 okuması gelir
+        vm.UpdateCurrentPercentage(100, now.AddSeconds(3), BatterySource.WindowsApiGatt, BatteryConfidence.Exact, true, "XBOX_ANIL");
+
+        // Kesinlikle sahte pil değişimi önerisi ÜRETİLMEMELİDİR!
+        Assert.False(vm.HasPendingProposal);
+    }
+
+    [Fact]
     public async Task SqliteBatteryRepository_FilterByDeviceKey_ReturnsOnlyTargetDeviceChanges()
     {
         await _repo.RecordBatteryChangeAsync(new BatteryChange { DeviceKey = "KOL_A", Note = "Pil A" });
@@ -274,12 +306,17 @@ public class BatteryManagementTests : IDisposable
 
     private class DummyDeviceWatcher : IDeviceWatcherService
     {
-        public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged { add { } remove { } }
+        public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged;
         public event EventHandler<int>? BatteryLevelUpdated { add { } remove { } }
 
         public DeviceInfo CurrentDevice { get; } = new() { DeviceKey = "XBOX_TEST", Name = "Xbox Controller" };
         public IReadOnlyList<DeviceInfo> ConnectedDevices => new[] { CurrentDevice };
         public bool IsRunning => false;
+
+        public void TriggerConnection(DeviceConnectionChangedEventArgs args)
+        {
+            ConnectionChanged?.Invoke(this, args);
+        }
 
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task StopAsync() => Task.CompletedTask;

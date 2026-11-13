@@ -395,8 +395,13 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 
                 if (newState == DeviceConnectionState.Connected)
                 {
-                    // Bağlantı kuruldu; taze pil okuması yap
-                    _ = RefreshBatteryForTargetAsync(target, nowUtc);
+                    // Bağlantı kurulduğunda donanımın ve BLE GATT servislerinin tam oturması için
+                    // 2.5 saniyelik stabilizasyon süresi tanı (Windows önbelleğindeki sahte/varsayılan %50 okumalarını önler)
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(2500);
+                        await RefreshBatteryForTargetAsync(target, DateTimeOffset.UtcNow);
+                    });
                 }
                 else if (newState == DeviceConnectionState.Disconnected)
                 {
@@ -436,11 +441,13 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                 {
                     var ch = chResult.Characteristics[0];
 
-                    // 1. Doğrudan donanımdan taze (Uncached) okumayı dene, yanıt alınamazsa önbelleğe dön
+                    // 1. Doğrudan donanımdan taze (Uncached) okumayı dene
                     var readResult = await ch.ReadValueAsync(BluetoothCacheMode.Uncached);
                     if (readResult.Status != GattCommunicationStatus.Success)
                     {
-                        readResult = await ch.ReadValueAsync(BluetoothCacheMode.Cached);
+                        // İlk bağlantı anında el sıkışması sürüyorsa 1 saniye sonra bir kez daha taze okumayı dene
+                        await Task.Delay(1000);
+                        readResult = await ch.ReadValueAsync(BluetoothCacheMode.Uncached);
                     }
 
                     if (readResult.Status == GattCommunicationStatus.Success)
@@ -449,6 +456,19 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                         if (bytes.Length > 0)
                         {
                             ProcessRawBatteryReading(target, bytes[0], nowUtc);
+                        }
+                    }
+                    else
+                    {
+                        // Yalnızca Uncached yanıt vermezse önbelleğe başvur; ancak Windows'un varsayılan sahte 50 (0x32) değerini ele
+                        var cachedResult = await ch.ReadValueAsync(BluetoothCacheMode.Cached);
+                        if (cachedResult.Status == GattCommunicationStatus.Success)
+                        {
+                            byte[] bytes = cachedResult.Value.ToArray();
+                            if (bytes.Length > 0 && bytes[0] != 50)
+                            {
+                                ProcessRawBatteryReading(target, bytes[0], nowUtc);
+                            }
                         }
                     }
 

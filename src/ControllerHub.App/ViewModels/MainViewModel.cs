@@ -123,6 +123,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
             AnalyticsVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, AnalyticsVM);
             BatteryVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, BatteryVM);
 
+            BatteryVM.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(BatteryVM.HasPendingProposal))
+                {
+                    DashboardVM.HasBatteryProposal = BatteryVM.HasPendingProposal;
+                    DashboardVM.BatteryProposalText = BatteryVM.PendingProposalText;
+                }
+            };
+
             await SyncControllerFiltersAsync();
             await UpdateConnectedControllersUiAsync();
             await DashboardVM.RefreshDataAsync();

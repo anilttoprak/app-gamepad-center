@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ControllerHub.Core.Interfaces;
@@ -28,6 +29,9 @@ public partial class BatteryViewModel : ViewModelBase
     private ISessionRepository? _sessionRepository;
     private SessionTrackerService? _sessionTracker;
     private readonly Dictionary<string, int> _lastKnownPercentageByDevice = new();
+    private readonly Dictionary<string, int> _preConnectionPercentageByDevice = new();
+    private readonly Dictionary<string, DateTimeOffset> _connectionTimeByDevice = new();
+    private CancellationTokenSource? _proposalDebounceCts;
     private readonly BatteryChangeDetector _changeDetector = new();
     private BatteryChangeProposal? _activeProposal;
 
@@ -152,10 +156,41 @@ public partial class BatteryViewModel : ViewModelBase
         ISessionRepository? sessionRepository = null,
         SessionTrackerService? sessionTracker = null)
     {
+        if (_deviceWatcher != null)
+        {
+            _deviceWatcher.ConnectionChanged -= OnDeviceConnectionChanged;
+        }
+
         _batteryRepository = batteryRepository;
         _deviceWatcher = deviceWatcher;
         _sessionRepository = sessionRepository;
         _sessionTracker = sessionTracker;
+
+        if (_deviceWatcher != null)
+        {
+            _deviceWatcher.ConnectionChanged += OnDeviceConnectionChanged;
+        }
+    }
+
+    private void OnDeviceConnectionChanged(object? sender, DeviceConnectionChangedEventArgs e)
+    {
+        var key = e.Device.DeviceKey;
+        if (string.IsNullOrEmpty(key)) return;
+
+        if (e.State == DeviceConnectionState.Connected)
+        {
+            // Cihaz bağlandığında son bilinen seviyeyi bağlantı öncesi tabanı olarak sakla
+            if (_lastKnownPercentageByDevice.TryGetValue(key, out var lastPct))
+            {
+                _preConnectionPercentageByDevice[key] = lastPct;
+            }
+            _connectionTimeByDevice[key] = e.TimestampUtc;
+        }
+        else if (e.State == DeviceConnectionState.Disconnected)
+        {
+            _connectionTimeByDevice.Remove(key);
+            _proposalDebounceCts?.Cancel();
+        }
     }
 
     public async Task RefreshDataAsync()
@@ -309,23 +344,102 @@ public partial class BatteryViewModel : ViewModelBase
             ? deviceKey
             : (_deviceWatcher?.CurrentDevice.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC");
 
+        bool isWarmingUp = false;
+        if (_connectionTimeByDevice.TryGetValue(targetDeviceKey, out var connTime))
+        {
+            isWarmingUp = (timestamp - connTime).TotalSeconds < 7.0;
+        }
+        else if (_sessionTracker != null)
+        {
+            var activeSession = _sessionTracker.ActiveSessions.FirstOrDefault(s => s.DeviceKey == targetDeviceKey);
+            if (activeSession != null)
+            {
+                isWarmingUp = (timestamp - activeSession.StartedAtUtc).TotalSeconds < 7.0;
+            }
+        }
+
         // 1. Otomatik pil değişimi tespit motorunu değerlendir (yalnızca AYNI cihazın donanımsal bağlı okumalarında)
         if (source == BatterySource.WindowsApiGatt && isConnected)
         {
-            if (_lastKnownPercentageByDevice.TryGetValue(targetDeviceKey, out var prevPct))
+            // Karşılaştırma için referans tabanını belirle:
+            // Isınma (bağlantı stabilizasyon) sürecindeyse bağlantı öncesindeki son kararlı seviyeyi referans al.
+            int? basePercentage = null;
+            if (isWarmingUp && _preConnectionPercentageByDevice.TryGetValue(targetDeviceKey, out var prePct))
             {
-                var proposal = _changeDetector.Evaluate(targetDeviceKey, prevPct, percentage, isConnected, timestamp);
+                basePercentage = prePct;
+            }
+            else if (_lastKnownPercentageByDevice.TryGetValue(targetDeviceKey, out var prevPct))
+            {
+                basePercentage = prevPct;
+            }
+
+            if (basePercentage.HasValue)
+            {
+                var proposal = _changeDetector.Evaluate(targetDeviceKey, basePercentage.Value, percentage, isConnected, timestamp);
                 if (proposal != null)
                 {
                     _activeProposal = proposal;
                     PendingProposalText = proposal.ReasonMessage;
                     ProposalDetails = $"Eski Seviye: %{proposal.PreviousPercentage} ➔ Yeni Seviye: %{proposal.NewPercentage}";
-                    HasPendingProposal = true;
+
+                    if (isWarmingUp)
+                    {
+                        // Isınma sürecinde (yeni bağlantıda) bataryanın tam oturması için bekle (kullanıcı talebi: biraz beklesin sonra uyarı versin)
+                        _proposalDebounceCts?.Cancel();
+                        _proposalDebounceCts = new CancellationTokenSource();
+                        var token = _proposalDebounceCts.Token;
+                        var candidateProposal = proposal;
+                        var currentTargetKey = targetDeviceKey;
+
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await Task.Delay(3500, token);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                return;
+                            }
+
+                            var action = () =>
+                            {
+                                if (_lastKnownPercentageByDevice.TryGetValue(currentTargetKey, out var latestPct) &&
+                                    latestPct >= candidateProposal.NewPercentage)
+                                {
+                                    HasPendingProposal = true;
+                                }
+                            };
+
+                            if (Application.Current?.Dispatcher != null)
+                            {
+                                _ = Application.Current.Dispatcher.BeginInvoke(action);
+                            }
+                            else
+                            {
+                                action();
+                            }
+                        });
+                    }
+                    else
+                    {
+                        HasPendingProposal = true;
+                    }
                 }
             }
         }
 
-        _lastKnownPercentageByDevice[targetDeviceKey] = percentage;
+        // Geçici düşüş filtresi: Cihaz yeni bağlandığında (ısınma sürecinde) okunan değer, bağlantı öncesi
+        // seviyeden ani/büyük bir düşüş gösteriyorsa (örn: %100'den geçici %50'ye), referans tabanını bozma
+        bool isTransientDip = isWarmingUp &&
+                              _preConnectionPercentageByDevice.TryGetValue(targetDeviceKey, out var preConnPct) &&
+                              percentage < preConnPct &&
+                              (preConnPct - percentage) >= 25;
+
+        if (!isTransientDip)
+        {
+            _lastKnownPercentageByDevice[targetDeviceKey] = percentage;
+        }
 
         // Yalnızca şu an bu cihaz görüntüleniyorsa veya genel özet ("ALL") seçiliyse ekranı güncelle
         var currentFilterKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
