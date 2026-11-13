@@ -18,7 +18,19 @@ public class SqliteSessionRepository : ISessionRepository
         using var conn = _context.CreateConnection();
         using var trans = conn.BeginTransaction();
 
-        // 1. Varsa bu cihaz için önceki açık oturumları güvenli biçimde kurtar/kapat (FR-05)
+        // 1. Varsa bu cihaz için 0 saniyelik hayalet açık oturumları sil
+        using var deleteGhostCmd = conn.CreateCommand();
+        deleteGhostCmd.Transaction = trans;
+        deleteGhostCmd.CommandText = @"
+            DELETE FROM Sessions 
+            WHERE DeviceKey = @deviceKey 
+              AND EndedAtUtc IS NULL 
+              AND CAST((strftime('%s', @endedAt) - strftime('%s', StartedAtUtc)) AS INTEGER) <= 0;";
+        deleteGhostCmd.Parameters.AddWithValue("@endedAt", startedAtUtc.ToString("o"));
+        deleteGhostCmd.Parameters.AddWithValue("@deviceKey", deviceKey);
+        await deleteGhostCmd.ExecuteNonQueryAsync();
+
+        // Varsa gerçek süresi olan önceki açık oturumları güvenli biçimde kurtar/kapat (FR-05)
         using var closePrevious = conn.CreateCommand();
         closePrevious.Transaction = trans;
         closePrevious.CommandText = @"
@@ -156,7 +168,17 @@ public class SqliteSessionRepository : ISessionRepository
     public async Task<int> RecoverOrphanedSessionsAsync(DateTimeOffset recoveryTimeUtc)
     {
         using var conn = _context.CreateConnection();
+        using var trans = conn.BeginTransaction();
+
+        // 1. Geçmişteki 0 saniyelik hayalet kurtarma artıklarını temizle
+        using var cleanupCmd = conn.CreateCommand();
+        cleanupCmd.Transaction = trans;
+        cleanupCmd.CommandText = "DELETE FROM Sessions WHERE DurationSeconds <= 0 AND EndReason = 'Recovery';";
+        await cleanupCmd.ExecuteNonQueryAsync();
+
+        // 2. Beklenmeyen kapanışlardan kalan açık oturumları kapat
         using var cmd = conn.CreateCommand();
+        cmd.Transaction = trans;
         cmd.CommandText = @"
             UPDATE Sessions 
             SET EndedAtUtc = @recoveryTime,
@@ -165,7 +187,9 @@ public class SqliteSessionRepository : ISessionRepository
             WHERE EndedAtUtc IS NULL;";
         cmd.Parameters.AddWithValue("@recoveryTime", recoveryTimeUtc.ToString("o"));
 
-        return await cmd.ExecuteNonQueryAsync();
+        var result = await cmd.ExecuteNonQueryAsync();
+        trans.Commit();
+        return result;
     }
 
     private static ControllerSession MapReaderToSession(SqliteDataReader reader)

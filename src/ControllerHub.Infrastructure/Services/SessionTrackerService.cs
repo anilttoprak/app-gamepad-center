@@ -11,6 +11,7 @@ public class SessionTrackerService : IDisposable
     private readonly IBatteryRepository _batteryRepository;
     private readonly object _syncLock = new();
     private readonly Dictionary<string, ControllerSession> _activeSessions = new();
+    private readonly HashSet<string> _startingSessions = new();
     private CancellationTokenSource? _tickerCts;
     private bool _disposed;
 
@@ -63,21 +64,44 @@ public class SessionTrackerService : IDisposable
         {
             if (e.Action == DebounceAction.SessionStarted)
             {
-                var session = await _sessionRepository.StartSessionAsync(e.Device.DeviceKey, e.TimestampUtc);
-                session.DeviceName = e.Device.DeviceName;
                 lock (_syncLock)
                 {
-                    _activeSessions[e.Device.DeviceKey] = session;
+                    if (_activeSessions.TryGetValue(e.Device.DeviceKey, out var existing) && existing.IsActive)
+                    {
+                        return; // Zaten bu aygıt için aktif bir oturum kaydı mevcut
+                    }
+                    if (!_startingSessions.Add(e.Device.DeviceKey))
+                    {
+                        return; // Şu an bu aygıt için arka planda başlatma işlemi sürüyor
+                    }
                 }
 
-                StartLiveTicker();
-                SessionStarted?.Invoke(this, session);
+                try
+                {
+                    var session = await _sessionRepository.StartSessionAsync(e.Device.DeviceKey, e.TimestampUtc);
+                    session.DeviceName = e.Device.DeviceName;
+                    lock (_syncLock)
+                    {
+                        _activeSessions[e.Device.DeviceKey] = session;
+                    }
+
+                    StartLiveTicker();
+                    SessionStarted?.Invoke(this, session);
+                }
+                finally
+                {
+                    lock (_syncLock)
+                    {
+                        _startingSessions.Remove(e.Device.DeviceKey);
+                    }
+                }
             }
             else if (e.Action == DebounceAction.SessionEnded)
             {
                 ControllerSession? endedSession = null;
                 lock (_syncLock)
                 {
+                    _startingSessions.Remove(e.Device.DeviceKey);
                     if (_activeSessions.Remove(e.Device.DeviceKey, out var s))
                     {
                         endedSession = s;

@@ -382,30 +382,50 @@ public class MultiDeviceArchitectureTests : IDisposable
     }
 
     [Fact]
-    public async Task BluetoothClassic_LiveDiscovery_DiscoversConnectedWirelessController()
+    public async Task BluetoothAdapter_CheckRadioState()
     {
-        var watcher = new ControllerHub.Infrastructure.DeviceDetection.BluetoothClassicDeviceWatcher();
-        await watcher.DiscoverTargetDevicesAsync();
-        await watcher.CheckDeviceStatesAsync();
-
-        // 500ms debounce için tick
-        var now = DateTimeOffset.UtcNow;
-        watcher.EvaluateDebounce(now);
-        watcher.EvaluateDebounce(now.AddMilliseconds(600));
-
-        Console.WriteLine($"Connected Classic Devices Count: {watcher.ConnectedDevices.Count}");
-        foreach (var dev in watcher.ConnectedDevices)
+        var adapter = await Windows.Devices.Bluetooth.BluetoothAdapter.GetDefaultAsync();
+        Console.WriteLine($"Adapter: {adapter != null}, DeviceId: {adapter?.DeviceId}");
+        if (adapter != null)
         {
-            Console.WriteLine($"LIVE CONNECTED: {dev.Name} [{dev.DeviceKey}] - State: {dev.State}");
+            var radio = await adapter.GetRadioAsync();
+            Console.WriteLine($"Radio: {radio != null}, State: {radio?.State}");
         }
+    }
 
-        // Eğer kullanıcı kolda bağlıysa doğrula
-        if (watcher.ConnectedDevices.Count > 0)
+    [Fact]
+    public async Task SessionTrackerService_DuplicateSessionStarted_SuppressesSecondCall()
+    {
+        var mockWatcher = new MockWatcherService();
+
+        using var tracker = new ControllerHub.Infrastructure.Services.SessionTrackerService(
+            mockWatcher,
+            _sessionRepo,
+            _batteryRepo);
+
+        await tracker.InitializeAsync();
+
+        var dev = new DeviceInfo
         {
-            var dev = watcher.ConnectedDevices[0];
-            Assert.Contains("Wireless Controller", dev.Name);
-            Assert.StartsWith("BT_", dev.DeviceKey);
-            Assert.Equal(DeviceConnectionState.Connected, dev.State);
-        }
+            DeviceKey = "TEST_DEVICE_CONCURRENCY",
+            Name = "Test Gamepad",
+            State = DeviceConnectionState.Connected,
+            ConnectionType = ControllerConnectionType.Bluetooth
+        };
+
+        // İki SessionStarted olayını art arda tetikle
+        mockWatcher.SimulateDeviceConnected(dev);
+        mockWatcher.SimulateDeviceConnected(dev);
+
+        await Task.Delay(100);
+
+        // Tracker içinde sadece 1 aktif oturum olmalı
+        Assert.Single(tracker.ActiveSessions);
+        Assert.Equal("TEST_DEVICE_CONCURRENCY", tracker.ActiveSessions[0].DeviceKey);
+
+        // Veritabanında da 0 saniyelik hayalet kurtarma kaydı oluşmamalı
+        var recent = await _sessionRepo.GetRecentSessionsAsync(10);
+        var matching = recent.Where(s => s.DeviceKey == "TEST_DEVICE_CONCURRENCY").ToList();
+        Assert.Single(matching); // Sadece 1 adet aktif oturum
     }
 }

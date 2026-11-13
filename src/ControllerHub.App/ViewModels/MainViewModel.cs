@@ -125,6 +125,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             await SyncControllerFiltersAsync();
             await UpdateConnectedControllersUiAsync();
+            await DashboardVM.RefreshDataAsync();
 
             HardwareDiagnosticsText = "SQLite (WAL) Hazır | 4s Debounce Aktif";
         }

@@ -3,6 +3,7 @@ using ControllerHub.Core.Models;
 using ControllerHub.Core.Policies;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Enumeration;
+using Windows.Devices.Radios;
 
 namespace ControllerHub.Infrastructure.DeviceDetection;
 
@@ -39,11 +40,14 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
         "System.Devices.Icon"
     };
 
+    // Anahtar olarak mutlaka CleanMac kullanılır; böylece Windows'un aynı kol için ürettiği
+    // farklı endpoint/servis ID'leri tek bir hedef kol nesnesi altında birleştirilir.
     private readonly Dictionary<string, TrackedClassicBtTarget> _trackedDevices = new(StringComparer.OrdinalIgnoreCase);
     private readonly DeviceInfo _fallbackDefaultDevice;
     private readonly object _syncLock = new();
 
     private DeviceWatcher? _deviceWatcher;
+    private Radio? _bluetoothRadio;
     private CancellationTokenSource? _pollingCts;
     private bool _disposed;
 
@@ -101,13 +105,16 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
         if (IsRunning) return;
         IsRunning = true;
 
-        // 1. Eşleştirilmiş Bluetooth Classic oyun kollarını keşfet
+        // 1. Bilgisayarın Bluetooth radyo donanım durumunu bağla
+        await InitializeRadioAsync();
+
+        // 2. Eşleştirilmiş Bluetooth Classic oyun kollarını keşfet
         await DiscoverTargetDevicesAsync();
 
-        // 2. Windows PnP DeviceWatcher başlat
+        // 3. Windows PnP DeviceWatcher başlat
         StartPnpDeviceWatcher();
 
-        // 3. 1 saniyelik periyodik durum doğrulama ve Debounce tick döngüsü
+        // 4. 1 saniyelik periyodik durum doğrulama ve Debounce tick döngüsü
         _pollingCts = new CancellationTokenSource();
         _ = RunPollingLoopAsync(_pollingCts.Token);
     }
@@ -118,6 +125,56 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
         _pollingCts?.Cancel();
         StopDeviceWatcherSafely();
         return Task.CompletedTask;
+    }
+
+    private async Task InitializeRadioAsync()
+    {
+        try
+        {
+            var adapter = await BluetoothAdapter.GetDefaultAsync();
+            if (adapter != null)
+            {
+                _bluetoothRadio = await adapter.GetRadioAsync();
+                if (_bluetoothRadio != null)
+                {
+                    _bluetoothRadio.StateChanged += OnRadioStateChanged;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void OnRadioStateChanged(Radio sender, object args)
+    {
+        if (sender.State != RadioState.On)
+        {
+            // Kullanıcı Windows üzerinden Bluetooth'u kapattığında tüm kollar derhal kopmuş sayılır
+            lock (_syncLock)
+            {
+                foreach (var target in _trackedDevices.Values)
+                {
+                    target.RawPresentSignal = false;
+                    if (target.DeviceInfo.IsConnected)
+                    {
+                        target.DeviceInfo.State = DeviceConnectionState.Disconnected;
+                        ConnectionChanged?.Invoke(this, new DeviceConnectionChangedEventArgs(
+                            DeviceConnectionState.Disconnected,
+                            target.DeviceInfo,
+                            DebounceAction.SessionEnded,
+                            DateTimeOffset.UtcNow));
+                    }
+                }
+            }
+        }
+        else
+        {
+            _ = Task.Run(async () =>
+            {
+                await DiscoverTargetDevicesAsync();
+                await CheckDeviceStatesAsync();
+                EvaluateDebounce(DateTimeOffset.UtcNow);
+            });
+        }
     }
 
     private void StopDeviceWatcherSafely()
@@ -149,23 +206,30 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
                 {
                     string cleanMac = ExtractMacAddress(d.Id);
                     bool isConnected = false;
-                    if (d.Properties.TryGetValue("System.Devices.Aep.IsConnected", out var cVal) && cVal is bool b)
+
+                    // Eğer PC Bluetooth radyosu kapalıysa bağlı olamaz
+                    if (_bluetoothRadio != null && _bluetoothRadio.State != RadioState.On)
+                    {
+                        isConnected = false;
+                    }
+                    else if (d.Properties.TryGetValue("System.Devices.Aep.IsConnected", out var cVal) && cVal is bool b)
                     {
                         isConnected = b;
                     }
 
                     lock (_syncLock)
                     {
-                        if (!_trackedDevices.TryGetValue(d.Id, out var target))
+                        if (!_trackedDevices.TryGetValue(cleanMac, out var target))
                         {
                             target = new TrackedClassicBtTarget(d.Id, cleanMac, d.Name)
                             {
                                 RawPresentSignal = isConnected
                             };
-                            _trackedDevices[d.Id] = target;
+                            _trackedDevices[cleanMac] = target;
                         }
                         else
                         {
+                            target.DeviceId = d.Id;
                             target.Name = d.Name;
                             target.DeviceInfo.Name = d.Name;
                             target.RawPresentSignal = isConnected;
@@ -199,23 +263,29 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
         {
             string cleanMac = ExtractMacAddress(info.Id);
             bool isConnected = false;
-            if (info.Properties.TryGetValue("System.Devices.Aep.IsConnected", out var cVal) && cVal is bool b)
+
+            if (_bluetoothRadio != null && _bluetoothRadio.State != RadioState.On)
+            {
+                isConnected = false;
+            }
+            else if (info.Properties.TryGetValue("System.Devices.Aep.IsConnected", out var cVal) && cVal is bool b)
             {
                 isConnected = b;
             }
 
             lock (_syncLock)
             {
-                if (!_trackedDevices.TryGetValue(info.Id, out var target))
+                if (!_trackedDevices.TryGetValue(cleanMac, out var target))
                 {
                     target = new TrackedClassicBtTarget(info.Id, cleanMac, info.Name)
                     {
                         RawPresentSignal = isConnected
                     };
-                    _trackedDevices[info.Id] = target;
+                    _trackedDevices[cleanMac] = target;
                 }
                 else
                 {
+                    target.DeviceId = info.Id;
                     target.RawPresentSignal = isConnected;
                 }
             }
@@ -226,15 +296,21 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
 
     private void OnDeviceWatcherUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
     {
+        string cleanMac = ExtractMacAddress(update.Id);
         TrackedClassicBtTarget? target;
         lock (_syncLock)
         {
-            _trackedDevices.TryGetValue(update.Id, out target);
+            _trackedDevices.TryGetValue(cleanMac, out target);
         }
 
         if (target != null)
         {
-            if (update.Properties.TryGetValue("System.Devices.Aep.IsConnected", out var cVal) && cVal is bool b)
+            if (_bluetoothRadio != null && _bluetoothRadio.State != RadioState.On)
+            {
+                lock (_syncLock) target.RawPresentSignal = false;
+                EvaluateDebounce(DateTimeOffset.UtcNow);
+            }
+            else if (update.Properties.TryGetValue("System.Devices.Aep.IsConnected", out var cVal) && cVal is bool b)
             {
                 lock (_syncLock)
                 {
@@ -263,9 +339,10 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
 
     private void OnDeviceWatcherRemoved(DeviceWatcher sender, DeviceInformationUpdate update)
     {
+        string cleanMac = ExtractMacAddress(update.Id);
         lock (_syncLock)
         {
-            if (_trackedDevices.TryGetValue(update.Id, out var target))
+            if (_trackedDevices.TryGetValue(cleanMac, out var target))
             {
                 target.RawPresentSignal = false;
             }
@@ -305,6 +382,19 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
             {
                 targets = _trackedDevices.Values.ToList();
             }
+        }
+
+        // Eğer Windows üzerinden Bluetooth kapatılmışsa tüm Classic BT kolları anında kapalı işaretle
+        if (_bluetoothRadio != null && _bluetoothRadio.State != RadioState.On)
+        {
+            foreach (var target in targets)
+            {
+                lock (_syncLock)
+                {
+                    target.RawPresentSignal = false;
+                }
+            }
+            return;
         }
 
         foreach (var target in targets)
@@ -433,6 +523,11 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
         if (!_disposed)
         {
             _disposed = true;
+            if (_bluetoothRadio != null)
+            {
+                try { _bluetoothRadio.StateChanged -= OnRadioStateChanged; } catch { }
+                _bluetoothRadio = null;
+            }
             _pollingCts?.Cancel();
             _pollingCts?.Dispose();
             StopDeviceWatcherSafely();

@@ -157,10 +157,12 @@ public partial class SessionsViewModel : ViewModelBase
         var active = _sessionTracker?.ActiveSession;
         var activeList = _sessionTracker?.ActiveSessions ?? (active != null && active.IsActive ? new[] { active } : (IReadOnlyList<ControllerSession>)Array.Empty<ControllerSession>());
 
-        // Filtreye göre tamamlanmış oturumları seç (Aktif oturum s.EndedAtUtc == null olduğu için geçmiş listesine girmez)
+        // Filtreye göre tamamlanmış oturumları seç (Aktif oturum veya 0sn hayalet kurtarma kayıtları listeye girmez)
         var filtered = _allSessions.Where(s =>
         {
             if (!s.EndedAtUtc.HasValue) return false;
+            if (activeList.Any(a => a.Id == s.Id)) return false;
+            if (s.DurationSeconds <= 0 && s.EndReason == SessionEndReason.Recovery) return false;
             if (selectedKey != "ALL" && s.DeviceKey != selectedKey) return false;
 
             var sDate = s.StartedAtUtc.ToLocalTime().Date;
