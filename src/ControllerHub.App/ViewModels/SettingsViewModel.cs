@@ -124,14 +124,14 @@ public partial class SettingsViewModel : ViewModelBase
             ? await _metadataRepository.GetAllCustomNamesAsync()
             : new Dictionary<string, string>();
 
-        var keys = new HashSet<string>(customNames.Keys);
+        var keys = new HashSet<string>(customNames.Where(kv => !string.IsNullOrWhiteSpace(kv.Value)).Select(kv => kv.Key));
 
         if (_sessionRepository != null)
         {
             var sessions = await _sessionRepository.GetRecentSessionsAsync(500);
-            foreach (var s in sessions)
+            foreach (var s in sessions.Where(s => s.EndedAtUtc == null || s.DurationSeconds > 10))
             {
-                if (!string.IsNullOrEmpty(s.DeviceKey))
+                if (!string.IsNullOrEmpty(s.DeviceKey) && s.DeviceKey != "XBOX_CONTROLLER_DYNAMIC")
                 {
                     keys.Add(s.DeviceKey);
                 }

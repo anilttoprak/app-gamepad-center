@@ -30,6 +30,15 @@ public class SqliteControllerMetadataRepository : IControllerMetadataRepository
     {
         using var conn = _context.CreateConnection();
         using var cmd = conn.CreateCommand();
+
+        if (string.IsNullOrWhiteSpace(customName))
+        {
+            cmd.CommandText = "DELETE FROM ControllerMetadata WHERE DeviceKey = @key;";
+            cmd.Parameters.AddWithValue("@key", deviceKey);
+            await cmd.ExecuteNonQueryAsync();
+            return;
+        }
+
         cmd.CommandText = @"
             INSERT INTO ControllerMetadata (DeviceKey, CustomName, UpdatedAtUtc)
             VALUES (@key, @name, @updatedAt)

@@ -263,6 +263,11 @@ public class MultiDeviceArchitectureTests : IDisposable
         await metaRepo.SetCustomNameAsync("XBOX_BLE_TEST_99", "Oturma Odası Kolu");
         var updated = await metaRepo.GetCustomNameAsync("XBOX_BLE_TEST_99");
         Assert.Equal("Oturma Odası Kolu", updated);
+
+        // Boş isim girildiğinde kaydı silmeli
+        await metaRepo.SetCustomNameAsync("XBOX_BLE_TEST_99", "");
+        var deleted = await metaRepo.GetCustomNameAsync("XBOX_BLE_TEST_99");
+        Assert.Null(deleted);
     }
 
     [Fact]

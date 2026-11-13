@@ -177,8 +177,12 @@ public partial class DashboardViewModel : ViewModelBase
 
         var currentKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
 
-        var deviceKeys = _cachedSessions.Select(s => s.DeviceKey)
-            .Concat(_sessionTracker?.ActiveSessions.Select(a => a.DeviceKey) ?? Enumerable.Empty<string>())
+        var activeKeys = _sessionTracker?.ActiveSessions.Select(a => a.DeviceKey).ToHashSet() ?? new HashSet<string>();
+
+        var deviceKeys = _cachedSessions
+            .Where(s => s.DurationSeconds > 10 || activeKeys.Contains(s.DeviceKey))
+            .Select(s => s.DeviceKey)
+            .Concat(activeKeys)
             .Where(k => !string.IsNullOrEmpty(k) && k != "XBOX_CONTROLLER_DYNAMIC")
             .Distinct()
             .ToList();

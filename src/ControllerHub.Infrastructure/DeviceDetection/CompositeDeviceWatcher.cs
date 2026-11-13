@@ -13,6 +13,7 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
     private readonly IDeviceWatcherService _bleWatcher;
     private readonly XInputDeviceWatcher _xinputWatcher;
     private readonly HashSet<int> _suppressedSlots = new();
+    private readonly Dictionary<int, CancellationTokenSource> _pendingXInputTimers = new();
     private readonly object _syncLock = new();
     private bool _disposed;
 
@@ -87,10 +88,18 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
         await _xinputWatcher.StartAsync(cancellationToken);
     }
 
-    public async Task StopAsync()
+    public Task StopAsync()
     {
-        await _bleWatcher.StopAsync();
-        await _xinputWatcher.StopAsync();
+        lock (_syncLock)
+        {
+            foreach (var kvp in _pendingXInputTimers)
+            {
+                kvp.Value.Cancel();
+            }
+            _pendingXInputTimers.Clear();
+        }
+
+        return Task.WhenAll(_bleWatcher.StopAsync(), _xinputWatcher.StopAsync());
     }
 
     private void OnBleConnectionChanged(object? sender, DeviceConnectionChangedEventArgs e)
@@ -99,18 +108,24 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
         {
             if (e.Action == DebounceAction.SessionStarted)
             {
-                // Eğer BLE bağlanmadan önce bir XInput slotu bağlanmış ve henüz bastırılmamışsa,
-                // o slot aslında bu BLE kolunun Windows sanal yansımasıdır. Onu hemen bastır ve kapat.
+                // Bekleyen tüm XInput onay gecikmelerini derhal iptal et ve bu slotları bastır
+                foreach (var kvp in _pendingXInputTimers)
+                {
+                    kvp.Value.Cancel();
+                    _suppressedSlots.Add(kvp.Key);
+                }
+                _pendingXInputTimers.Clear();
+
+                // Eğer BLE bağlanmadan önce bir XInput slotu 2 saniyelik onay süresini doldurup fiilen yayınlandıysa, onu bastır ve kapat
                 var unsuppressed = _xinputWatcher.ConnectedDevices
                     .Where(d => d.PlayerIndex.HasValue && !_suppressedSlots.Contains(d.PlayerIndex.Value))
                     .ToList();
 
-                if (unsuppressed.Count > 0)
+                foreach (var shadowDev in unsuppressed)
                 {
-                    var shadowDev = unsuppressed[0];
                     _suppressedSlots.Add(shadowDev.PlayerIndex!.Value);
 
-                    // Bu sanal XInput slotu için açılmış olabilecek sahte oturumu sonlandır
+                    // Bu sanal XInput slotu için açılmış olan sahte oturumu sonlandır
                     ConnectionChanged?.Invoke(this, new DeviceConnectionChangedEventArgs(
                         DeviceConnectionState.Disconnected,
                         shadowDev,
@@ -136,15 +151,63 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
 
             if (e.Action == DebounceAction.SessionStarted)
             {
-                // Eğer bağlı bir BLE cihazı varsa ve bu slot onun Windows XInput yansımasıysa, bastır
+                // Eğer halihazırda bağlı bir BLE cihazı varsa ve bu slot onun sanal yansımasıysa, anında bastır
                 if (_bleWatcher.ConnectedDevices.Count > _suppressedSlots.Count)
                 {
                     _suppressedSlots.Add(slot);
                     return;
                 }
+
+                // XInput sinyali Windows'ta Bluetooth BLE GATT servisinden ~100-800ms daha önce gelir.
+                // Erken bildirim ("USB Kolu bağlandı") ve sahte oturum açılmasını önlemek için 2 saniyelik onay süresi uygula.
+                if (_pendingXInputTimers.TryGetValue(slot, out var existingCts))
+                {
+                    existingCts.Cancel();
+                }
+
+                var cts = new CancellationTokenSource();
+                _pendingXInputTimers[slot] = cts;
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(2000, cts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return; // BLE bağlandığı için veya bağlantı koptuğu için iptal edildi
+                    }
+
+                    lock (_syncLock)
+                    {
+                        _pendingXInputTimers.Remove(slot);
+
+                        // 2 saniye sonra hala BLE bağlanmadıysa ve slot bastırılmadıysa, gerçek bir USB koldur
+                        if (!_suppressedSlots.Contains(slot))
+                        {
+                            if (_bleWatcher.ConnectedDevices.Count > _suppressedSlots.Count)
+                            {
+                                _suppressedSlots.Add(slot);
+                            }
+                            else
+                            {
+                                ConnectionChanged?.Invoke(this, e);
+                            }
+                        }
+                    }
+                });
+
+                return;
             }
             else if (e.Action == DebounceAction.SessionEnded)
             {
+                if (_pendingXInputTimers.TryGetValue(slot, out var pendingCts))
+                {
+                    pendingCts.Cancel();
+                    _pendingXInputTimers.Remove(slot);
+                }
+
                 if (_suppressedSlots.Remove(slot))
                 {
                     return;
@@ -180,6 +243,15 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
             _bleWatcher.BatteryLevelUpdated -= OnBleBatteryLevelUpdated;
             _xinputWatcher.ConnectionChanged -= OnXInputConnectionChanged;
             _xinputWatcher.BatteryLevelUpdated -= OnXInputBatteryLevelUpdated;
+
+            lock (_syncLock)
+            {
+                foreach (var kvp in _pendingXInputTimers)
+                {
+                    kvp.Value.Cancel();
+                }
+                _pendingXInputTimers.Clear();
+            }
 
             _bleWatcher.Dispose();
             _xinputWatcher.Dispose();
