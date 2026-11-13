@@ -18,7 +18,7 @@ public interface IBatteryRepository
     Task RecordBatteryChangeAsync(BatteryChange change);
     Task<BatteryReading?> GetLatestReadingAsync(string? deviceKey = null);
     Task<IReadOnlyList<BatteryReading>> GetRecentReadingsAsync(string deviceKey, int limit = 20);
-    Task<IReadOnlyList<BatteryChange>> GetBatteryChangesAsync(int limit = 50);
+    Task<IReadOnlyList<BatteryChange>> GetBatteryChangesAsync(int limit = 50, string? deviceKey = null);
     Task<bool> DeleteBatteryChangeAsync(long id);
 }
 

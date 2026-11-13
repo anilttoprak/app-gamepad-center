@@ -108,7 +108,7 @@ public class SqliteBatteryRepository : IBatteryRepository
         return list;
     }
 
-    public async Task<IReadOnlyList<BatteryChange>> GetBatteryChangesAsync(int limit = 50)
+    public async Task<IReadOnlyList<BatteryChange>> GetBatteryChangesAsync(int limit = 50, string? deviceKey = null)
     {
         var list = new List<BatteryChange>();
         using var conn = _context.CreateConnection();
@@ -116,8 +116,10 @@ public class SqliteBatteryRepository : IBatteryRepository
         cmd.CommandText = @"
             SELECT Id, DeviceKey, ChangedAtUtc, PreviousPercentage, NewPercentage, Note, ChangeType
             FROM BatteryChanges
+            WHERE (@deviceKey IS NULL OR DeviceKey = @deviceKey)
             ORDER BY ChangedAtUtc DESC LIMIT @limit;";
         cmd.Parameters.AddWithValue("@limit", limit);
+        cmd.Parameters.AddWithValue("@deviceKey", string.IsNullOrEmpty(deviceKey) ? DBNull.Value : deviceKey);
 
         using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())

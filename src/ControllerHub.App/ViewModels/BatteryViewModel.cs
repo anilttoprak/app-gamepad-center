@@ -27,11 +27,51 @@ public partial class BatteryViewModel : ViewModelBase
     private IDeviceWatcherService? _deviceWatcher;
     private ISessionRepository? _sessionRepository;
     private SessionTrackerService? _sessionTracker;
-    private int? _lastKnownPercentage;
+    private readonly Dictionary<string, int> _lastKnownPercentageByDevice = new();
     private readonly BatteryChangeDetector _changeDetector = new();
     private BatteryChangeProposal? _activeProposal;
 
     public override string Title => "Pil Yönetimi";
+
+    public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
+
+    [ObservableProperty]
+    private ControllerFilterOption? _selectedControllerFilter;
+
+    public event EventHandler<ControllerFilterOption>? ControllerFilterChanged;
+    private bool _isUpdatingFilter = false;
+
+    partial void OnSelectedControllerFilterChanged(ControllerFilterOption? value)
+    {
+        if (_isUpdatingFilter) return;
+        if (value != null)
+        {
+            ControllerFilterChanged?.Invoke(this, value);
+        }
+        _ = RefreshDataAsync();
+    }
+
+    public void UpdateFilterOptions(IEnumerable<ControllerFilterOption> options, string selectedKey)
+    {
+        _isUpdatingFilter = true;
+        try
+        {
+            ControllerFilterOptions.Clear();
+            foreach (var opt in options)
+            {
+                ControllerFilterOptions.Add(opt);
+            }
+
+            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
+                ?? ControllerFilterOptions.FirstOrDefault();
+        }
+        finally
+        {
+            _isUpdatingFilter = false;
+        }
+
+        _ = RefreshDataAsync();
+    }
 
     [ObservableProperty]
     private string _currentPercentage = "Bilinmiyor";
@@ -122,8 +162,11 @@ public partial class BatteryViewModel : ViewModelBase
     {
         if (_batteryRepository == null) return;
 
-        // 1. Son bilinen pil okumasını getir
-        var latestReading = await _batteryRepository.GetLatestReadingAsync();
+        var selectedKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
+        var filterDeviceKey = selectedKey == "ALL" ? null : selectedKey;
+
+        // 1. Son bilinen pil okumasını getir (seçili kontrolcüye özel veya genel)
+        var latestReading = await _batteryRepository.GetLatestReadingAsync(filterDeviceKey);
         if (latestReading?.Percentage != null)
         {
             UpdateCurrentPercentage(
@@ -131,13 +174,38 @@ public partial class BatteryViewModel : ViewModelBase
                 latestReading.RecordedAtUtc,
                 latestReading.Source,
                 latestReading.Confidence,
-                _deviceWatcher?.CurrentDevice.IsConnected ?? false);
+                _deviceWatcher?.CurrentDevice.IsConnected ?? false,
+                latestReading.DeviceKey);
+        }
+        else
+        {
+            CurrentPercentage = "Bilinmiyor";
+            LastUpdatedText = "Pil okuması bekleniyor...";
+            SourceDescription = "Bilinmiyor";
+            ConfidenceDescription = "Bilinmiyor";
+            ConfidenceBadge = "Belirsiz";
+            BatteryLevelBarWidth = 0;
         }
 
         // 2. Pil değişim geçmişini ve oturum verilerini çekerek pil performansı analizini hesapla
-        var changes = await _batteryRepository.GetBatteryChangesAsync(100);
+        var changes = await _batteryRepository.GetBatteryChangesAsync(100, filterDeviceKey);
         var sessions = _sessionRepository != null ? await _sessionRepository.GetRecentSessionsAsync(1000) : Array.Empty<ControllerSession>();
+        if (selectedKey != "ALL")
+        {
+            sessions = sessions.Where(s => s.DeviceKey == selectedKey).ToList();
+        }
+
         var activeSession = _sessionTracker?.ActiveSession;
+        if (selectedKey != "ALL")
+        {
+            activeSession = _sessionTracker?.ActiveSessions.FirstOrDefault(a => a.DeviceKey == selectedKey);
+        }
+
+        // Eğer bekleyen öneri başka bir cihaz içinse ve şu an tek bir cihaz filtreleniyorsa öneriyi gizle
+        if (HasPendingProposal && _activeProposal != null && selectedKey != "ALL" && _activeProposal.DeviceKey != selectedKey)
+        {
+            HasPendingProposal = false;
+        }
 
         var performance = BatteryCycleCalculator.ComputePerformance(sessions, changes, activeSession, DateTimeOffset.UtcNow);
         var cycleMap = performance.Cycles.Where(c => c.ChangeId.HasValue).ToDictionary(c => c.ChangeId!.Value);
@@ -234,44 +302,57 @@ public partial class BatteryViewModel : ViewModelBase
         DateTimeOffset timestamp,
         BatterySource source,
         BatteryConfidence confidence = BatteryConfidence.Exact,
-        bool isConnected = true)
+        bool isConnected = true,
+        string? deviceKey = null)
     {
-        // 1. Otomatik pil değişimi tespit motorunu değerlendir (yalnızca donanımsal bağlı okumalarda)
+        var targetDeviceKey = !string.IsNullOrEmpty(deviceKey)
+            ? deviceKey
+            : (_deviceWatcher?.CurrentDevice.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC");
+
+        // 1. Otomatik pil değişimi tespit motorunu değerlendir (yalnızca AYNI cihazın donanımsal bağlı okumalarında)
         if (source == BatterySource.WindowsApiGatt && isConnected)
         {
-            var deviceKey = _deviceWatcher?.CurrentDevice.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC";
-            var proposal = _changeDetector.Evaluate(deviceKey, _lastKnownPercentage, percentage, isConnected, timestamp);
-            if (proposal != null)
+            if (_lastKnownPercentageByDevice.TryGetValue(targetDeviceKey, out var prevPct))
             {
-                _activeProposal = proposal;
-                PendingProposalText = proposal.ReasonMessage;
-                ProposalDetails = $"Eski Seviye: %{proposal.PreviousPercentage} ➔ Yeni Seviye: %{proposal.NewPercentage}";
-                HasPendingProposal = true;
+                var proposal = _changeDetector.Evaluate(targetDeviceKey, prevPct, percentage, isConnected, timestamp);
+                if (proposal != null)
+                {
+                    _activeProposal = proposal;
+                    PendingProposalText = proposal.ReasonMessage;
+                    ProposalDetails = $"Eski Seviye: %{proposal.PreviousPercentage} ➔ Yeni Seviye: %{proposal.NewPercentage}";
+                    HasPendingProposal = true;
+                }
             }
         }
 
-        _lastKnownPercentage = percentage;
-        CurrentPercentage = $"%{percentage}";
+        _lastKnownPercentageByDevice[targetDeviceKey] = percentage;
 
-        SourceDescription = source switch
+        // Yalnızca şu an bu cihaz görüntüleniyorsa veya genel özet ("ALL") seçiliyse ekranı güncelle
+        var currentFilterKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
+        if (currentFilterKey == "ALL" || currentFilterKey == targetDeviceKey)
         {
-            BatterySource.WindowsApiGatt => "Bluetooth GATT (0x180F)",
-            BatterySource.Manual => "Manuel Kullanıcı Girişi",
-            BatterySource.XInput => "XInput Telemetrisi",
-            _ => "Bilinmiyor"
-        };
+            CurrentPercentage = $"%{percentage}";
 
-        ConfidenceDescription = confidence switch
-        {
-            BatteryConfidence.Exact => "Kademeli Donanım Ölçümü",
-            BatteryConfidence.Coarse => "Kaba Seviye",
-            _ => "Belirsiz"
-        };
+            SourceDescription = source switch
+            {
+                BatterySource.WindowsApiGatt => "Bluetooth GATT (0x180F)",
+                BatterySource.Manual => "Manuel Kullanıcı Girişi",
+                BatterySource.XInput => "XInput Telemetrisi",
+                _ => "Bilinmiyor"
+            };
 
-        ConfidenceBadge = source == BatterySource.WindowsApiGatt ? "Donanımsal Doğrulanmış" : "Manuel Giriş";
+            ConfidenceDescription = confidence switch
+            {
+                BatteryConfidence.Exact => "Kademeli Donanım Ölçümü",
+                BatteryConfidence.Coarse => "Kaba Seviye",
+                _ => "Belirsiz"
+            };
 
-        LastUpdatedText = $"{timestamp.ToLocalTime():dd MMM yyyy HH:mm:ss} ({SourceDescription})";
-        BatteryLevelBarWidth = Math.Clamp((percentage / 100.0) * 240, 4, 240);
+            ConfidenceBadge = source == BatterySource.WindowsApiGatt ? "Donanımsal Doğrulanmış" : "Manuel Giriş";
+
+            LastUpdatedText = $"{timestamp.ToLocalTime():dd MMM yyyy HH:mm:ss} ({SourceDescription})";
+            BatteryLevelBarWidth = Math.Clamp((percentage / 100.0) * 240, 4, 240);
+        }
     }
 
     [RelayCommand]
@@ -326,11 +407,17 @@ public partial class BatteryViewModel : ViewModelBase
         }
 
         var clamped = Math.Clamp(NewBatteryPercentage, 0, 100);
+        var targetDeviceKey = (SelectedControllerFilter != null && SelectedControllerFilter.DeviceKey != "ALL")
+            ? SelectedControllerFilter.DeviceKey
+            : (_deviceWatcher?.CurrentDevice.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC");
+
+        var prevPct = _lastKnownPercentageByDevice.TryGetValue(targetDeviceKey, out var p) ? p : (int?)null;
+
         var change = new BatteryChange
         {
-            DeviceKey = _deviceWatcher?.CurrentDevice.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC",
+            DeviceKey = targetDeviceKey,
             ChangedAtUtc = startTimestamp,
-            PreviousPercentage = isFirst ? null : _lastKnownPercentage,
+            PreviousPercentage = isFirst ? null : prevPct,
             NewPercentage = clamped,
             Note = string.IsNullOrWhiteSpace(BatteryNote) ? (isFirst ? "Kutu İçeriği Pil" : null) : BatteryNote.Trim(),
             ChangeType = isFirst ? "İlk Kurulum (Fabrika Çıkışı)" : "Manuel"
@@ -349,7 +436,7 @@ public partial class BatteryViewModel : ViewModelBase
             Note = isFirst ? $"İlk pil seti: {change.Note}" : $"Yeni pil seti: {change.Note}"
         });
 
-        UpdateCurrentPercentage(clamped, change.ChangedAtUtc, BatterySource.Manual, BatteryConfidence.Exact, true);
+        UpdateCurrentPercentage(clamped, change.ChangedAtUtc, BatterySource.Manual, BatteryConfidence.Exact, true, change.DeviceKey);
         await RefreshDataAsync();
 
         ShowFeedback(isFirst
@@ -364,10 +451,13 @@ public partial class BatteryViewModel : ViewModelBase
 
         var clamped = Math.Clamp(ManualPercentageInput, 0, 100);
         var now = DateTimeOffset.UtcNow;
+        var targetDeviceKey = (SelectedControllerFilter != null && SelectedControllerFilter.DeviceKey != "ALL")
+            ? SelectedControllerFilter.DeviceKey
+            : (_deviceWatcher?.CurrentDevice.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC");
 
         await _batteryRepository.RecordBatteryReadingAsync(new BatteryReading
         {
-            DeviceKey = _deviceWatcher?.CurrentDevice.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC",
+            DeviceKey = targetDeviceKey,
             RecordedAtUtc = now,
             Percentage = clamped,
             Source = BatterySource.Manual,
@@ -375,7 +465,7 @@ public partial class BatteryViewModel : ViewModelBase
             Note = "Kullanıcı manuel seviye girdi"
         });
 
-        UpdateCurrentPercentage(clamped, now, BatterySource.Manual, BatteryConfidence.Exact, true);
+        UpdateCurrentPercentage(clamped, now, BatterySource.Manual, BatteryConfidence.Exact, true, targetDeviceKey);
         ShowFeedback($"✅ Pil seviyesi manuel olarak %{clamped} olarak güncellendi.");
     }
 

@@ -115,14 +115,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
             SettingsVM.ControllerNicknamesUpdated += async (_, _) =>
             {
                 await UpdateConnectedControllersUiAsync();
-                await DashboardVM.RefreshDataAsync();
-                await SessionsVM.RefreshDataAsync();
+                await SyncControllerFiltersAsync();
             };
 
-            await DashboardVM.RefreshDataAsync();
-            await BatteryVM.RefreshDataAsync();
-            await SessionsVM.RefreshDataAsync();
-            await AnalyticsVM.RefreshDataAsync();
+            DashboardVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, DashboardVM);
+            SessionsVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, SessionsVM);
+            AnalyticsVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, AnalyticsVM);
+            BatteryVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, BatteryVM);
+
+            await SyncControllerFiltersAsync();
             await UpdateConnectedControllersUiAsync();
 
             HardwareDiagnosticsText = "SQLite (WAL) Hazır | 4s Debounce Aktif";
@@ -290,6 +291,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     $"{ActiveControllerName} bağlandı. Oturum kaydı başlatıldı."));
             }
             TrayStatusUpdated?.Invoke(this, "🟢 Bağlı (Aktif)");
+            _ = SyncControllerFiltersAsync();
         });
     }
 
@@ -307,6 +309,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     $"Oturum tamamlandı. Süre: {formatted}"));
             }
             TrayStatusUpdated?.Invoke(this, "⚪ Bağlı Değil");
+            _ = SyncControllerFiltersAsync();
         });
     }
 
@@ -318,14 +321,92 @@ public partial class MainViewModel : ObservableObject, IDisposable
         });
     }
 
+    private string _currentSelectedDeviceKey = "ALL";
+
+    private async Task<List<ControllerFilterOption>> BuildFilterOptionsAsync()
+    {
+        var customNames = _metadataRepository != null
+            ? await _metadataRepository.GetAllCustomNamesAsync()
+            : new Dictionary<string, string>();
+
+        var activeKeys = _sessionTracker?.ActiveSessions.Select(a => a.DeviceKey).ToHashSet() ?? new HashSet<string>();
+        var sessions = _sessionRepository != null ? await _sessionRepository.GetRecentSessionsAsync(500) : Array.Empty<ControllerSession>();
+
+        var deviceKeys = sessions
+            .Where(s => s.DurationSeconds > 10 || activeKeys.Contains(s.DeviceKey))
+            .Select(s => s.DeviceKey)
+            .Concat(activeKeys)
+            .Where(k => !string.IsNullOrEmpty(k) && k != "XBOX_CONTROLLER_DYNAMIC")
+            .Distinct()
+            .ToList();
+
+        var list = new List<ControllerFilterOption>
+        {
+            new ControllerFilterOption("ALL", "🔘 Tüm Kontrolcüler (Genel Özet)")
+        };
+
+        foreach (var key in deviceKeys)
+        {
+            string name;
+            if (customNames.TryGetValue(key, out var alias) && !string.IsNullOrWhiteSpace(alias))
+            {
+                name = alias;
+            }
+            else if (key.StartsWith("XINPUT_SLOT_"))
+            {
+                var slotStr = key["XINPUT_SLOT_".Length..];
+                name = int.TryParse(slotStr, out var slot)
+                    ? $"USB Kablolu Kol (Oyuncu {slot + 1})"
+                    : "USB Kablolu Oyun Kolu";
+            }
+            else if (key.StartsWith("XBOX_BLE_") && key.Length > 9)
+            {
+                var shortMac = key[9..];
+                name = $"Xbox Wireless Controller ({shortMac})";
+            }
+            else
+            {
+                name = "Xbox Wireless Controller";
+            }
+
+            list.Add(new ControllerFilterOption(key, $"🎮 {name}"));
+        }
+
+        return list;
+    }
+
+    public async Task SyncControllerFiltersAsync()
+    {
+        var options = await BuildFilterOptionsAsync();
+
+        DashboardVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
+        SessionsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
+        AnalyticsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
+        BatteryVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
+    }
+
+    private void OnFilterChangedFromView(string deviceKey, ViewModelBase source)
+    {
+        _currentSelectedDeviceKey = deviceKey;
+
+        if (source != DashboardVM) DashboardVM.SelectedControllerFilter = DashboardVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == deviceKey);
+        if (source != SessionsVM) SessionsVM.SelectedControllerFilter = SessionsVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == deviceKey);
+        if (source != AnalyticsVM) AnalyticsVM.SelectedControllerFilter = AnalyticsVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == deviceKey);
+        if (source != BatteryVM) BatteryVM.SelectedControllerFilter = BatteryVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == deviceKey);
+    }
+
     private void ApplyBatteryLevel(int percentage)
     {
+        var activeDev = _deviceWatcher.CurrentDevice;
+        var deviceKey = activeDev?.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC";
+
         BatteryVM.UpdateCurrentPercentage(
             percentage,
             DateTimeOffset.UtcNow,
             BatterySource.WindowsApiGatt,
             BatteryConfidence.Exact,
-            IsDeviceConnected);
+            IsDeviceConnected,
+            deviceKey);
 
         DashboardVM.BatteryLevelText = $"%{percentage}";
         DashboardVM.BatterySourceText = "Bluetooth GATT (0x180F)";

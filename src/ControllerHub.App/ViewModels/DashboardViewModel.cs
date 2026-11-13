@@ -37,8 +37,16 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     private ControllerFilterOption? _selectedControllerFilter;
 
+    public event EventHandler<ControllerFilterOption>? ControllerFilterChanged;
+    private bool _isUpdatingFilter = false;
+
     partial void OnSelectedControllerFilterChanged(ControllerFilterOption? value)
     {
+        if (_isUpdatingFilter) return;
+        if (value != null)
+        {
+            ControllerFilterChanged?.Invoke(this, value);
+        }
         RecalculateFilteredMetrics();
     }
 
@@ -166,6 +174,28 @@ public partial class DashboardViewModel : ViewModelBase
         await UpdateFilterOptionsAsync();
 
         // 3. Seçili filtreye göre metrikleri hesapla
+        RecalculateFilteredMetrics();
+    }
+
+    public void UpdateFilterOptions(IEnumerable<ControllerFilterOption> options, string selectedKey)
+    {
+        _isUpdatingFilter = true;
+        try
+        {
+            ControllerFilterOptions.Clear();
+            foreach (var opt in options)
+            {
+                ControllerFilterOptions.Add(opt);
+            }
+
+            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
+                ?? ControllerFilterOptions.FirstOrDefault();
+        }
+        finally
+        {
+            _isUpdatingFilter = false;
+        }
+
         RecalculateFilteredMetrics();
     }
 

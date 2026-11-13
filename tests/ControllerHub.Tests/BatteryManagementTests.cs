@@ -225,6 +225,53 @@ public class BatteryManagementTests : IDisposable
         Assert.Contains("Yeni Pil", vm.BatteryFormTitle);
     }
 
+    [Fact]
+    public void BatteryViewModel_DeviceSwitching_DoesNotTriggerFalseProposal()
+    {
+        var vm = new ControllerHub.App.ViewModels.BatteryViewModel();
+        vm.Initialize(_repo, new DummyDeviceWatcher());
+
+        var now = DateTimeOffset.UtcNow;
+
+        // Yusuf'un kolu bağlanır ve %61 raporlar
+        vm.UpdateCurrentPercentage(61, now, BatterySource.WindowsApiGatt, BatteryConfidence.Exact, true, "XBOX_YUSUF");
+        Assert.False(vm.HasPendingProposal);
+
+        // Yusuf bağlantıyı keser, Anıl kendi kolunu bağlar ve %100 okur
+        // Farklı cihazlar olduğu için kesinlikle sahte pil değişimi algılanmamalıdır!
+        vm.UpdateCurrentPercentage(100, now.AddSeconds(10), BatterySource.WindowsApiGatt, BatteryConfidence.Exact, true, "XBOX_ANIL");
+        Assert.False(vm.HasPendingProposal);
+
+        // Anıl'ın kolu kullanılır, %20'ye düşer
+        vm.UpdateCurrentPercentage(20, now.AddHours(5), BatterySource.WindowsApiGatt, BatteryConfidence.Exact, true, "XBOX_ANIL");
+        Assert.False(vm.HasPendingProposal);
+
+        // Anıl pilleri değiştirip tekrar %100 aldığında (aynı cihazda ani artış) gerçek öneri tetiklenmeli
+        vm.UpdateCurrentPercentage(100, now.AddHours(5).AddMinutes(2), BatterySource.WindowsApiGatt, BatteryConfidence.Exact, true, "XBOX_ANIL");
+        Assert.True(vm.HasPendingProposal);
+        Assert.Equal("XBOX_ANIL", vm.ActiveProposal?.DeviceKey);
+        Assert.Equal(20, vm.ActiveProposal?.PreviousPercentage);
+        Assert.Equal(100, vm.ActiveProposal?.NewPercentage);
+    }
+
+    [Fact]
+    public async Task SqliteBatteryRepository_FilterByDeviceKey_ReturnsOnlyTargetDeviceChanges()
+    {
+        await _repo.RecordBatteryChangeAsync(new BatteryChange { DeviceKey = "KOL_A", Note = "Pil A" });
+        await _repo.RecordBatteryChangeAsync(new BatteryChange { DeviceKey = "KOL_B", Note = "Pil B" });
+
+        var all = await _repo.GetBatteryChangesAsync(10);
+        Assert.Equal(2, all.Count);
+
+        var forA = await _repo.GetBatteryChangesAsync(10, "KOL_A");
+        Assert.Single(forA);
+        Assert.Equal("KOL_A", forA[0].DeviceKey);
+
+        var forB = await _repo.GetBatteryChangesAsync(10, "KOL_B");
+        Assert.Single(forB);
+        Assert.Equal("KOL_B", forB[0].DeviceKey);
+    }
+
     private class DummyDeviceWatcher : IDeviceWatcherService
     {
         public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged { add { } remove { } }

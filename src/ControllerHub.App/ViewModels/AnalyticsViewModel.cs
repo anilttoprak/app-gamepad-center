@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Services;
@@ -12,6 +13,46 @@ public partial class AnalyticsViewModel : ViewModelBase
     private SessionTrackerService? _sessionTracker;
 
     public override string Title => "Analizler & İstatistikler";
+
+    public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
+
+    [ObservableProperty]
+    private ControllerFilterOption? _selectedControllerFilter;
+
+    public event EventHandler<ControllerFilterOption>? ControllerFilterChanged;
+    private bool _isUpdatingFilter = false;
+
+    partial void OnSelectedControllerFilterChanged(ControllerFilterOption? value)
+    {
+        if (_isUpdatingFilter) return;
+        if (value != null)
+        {
+            ControllerFilterChanged?.Invoke(this, value);
+        }
+        _ = RefreshDataAsync();
+    }
+
+    public void UpdateFilterOptions(IEnumerable<ControllerFilterOption> options, string selectedKey)
+    {
+        _isUpdatingFilter = true;
+        try
+        {
+            ControllerFilterOptions.Clear();
+            foreach (var opt in options)
+            {
+                ControllerFilterOptions.Add(opt);
+            }
+
+            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
+                ?? ControllerFilterOptions.FirstOrDefault();
+        }
+        finally
+        {
+            _isUpdatingFilter = false;
+        }
+
+        _ = RefreshDataAsync();
+    }
 
     [ObservableProperty]
     private string _averageSessionDuration = "0 dk";
@@ -54,10 +95,21 @@ public partial class AnalyticsViewModel : ViewModelBase
     {
         if (_sessionRepository == null || _batteryRepository == null) return;
 
+        var selectedKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
+        var filterDeviceKey = selectedKey == "ALL" ? null : selectedKey;
+
         var nowUtc = DateTimeOffset.UtcNow;
         var sessions = await _sessionRepository.GetRecentSessionsAsync(1000);
-        var batteryChanges = await _batteryRepository.GetBatteryChangesAsync(100);
+        var batteryChanges = await _batteryRepository.GetBatteryChangesAsync(100, filterDeviceKey);
         var activeSession = _sessionTracker?.ActiveSession;
+
+        if (selectedKey != "ALL")
+        {
+            sessions = sessions.Where(s => s.DeviceKey == selectedKey).ToList();
+            batteryChanges = batteryChanges.Where(c => c.DeviceKey == selectedKey).ToList();
+            var allActive = _sessionTracker?.ActiveSessions;
+            activeSession = allActive?.FirstOrDefault(a => a.DeviceKey == selectedKey);
+        }
 
         var report = AnalyticsEngine.ComputeAnalytics(
             sessions,

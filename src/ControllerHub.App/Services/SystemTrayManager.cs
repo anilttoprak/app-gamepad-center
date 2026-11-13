@@ -205,13 +205,9 @@ public class SystemTrayManager : IDisposable
         var helper = new WindowInteropHelper(_window);
         SetForegroundWindow(helper.Handle);
 
-        GetCursorPos(out var pt);
-
         var menu = new ContextMenu
         {
-            Placement = PlacementMode.AbsolutePoint,
-            HorizontalOffset = pt.X,
-            VerticalOffset = pt.Y
+            Placement = PlacementMode.MousePoint
         };
 
         // 1. Controller Hub'ı Aç

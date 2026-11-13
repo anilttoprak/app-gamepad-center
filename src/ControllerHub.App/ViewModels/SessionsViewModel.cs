@@ -29,6 +29,46 @@ public partial class SessionsViewModel : ViewModelBase
 
     public override string Title => "Oturum Geçmişi";
 
+    public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
+
+    [ObservableProperty]
+    private ControllerFilterOption? _selectedControllerFilter;
+
+    public event EventHandler<ControllerFilterOption>? ControllerFilterChanged;
+    private bool _isUpdatingFilter = false;
+
+    partial void OnSelectedControllerFilterChanged(ControllerFilterOption? value)
+    {
+        if (_isUpdatingFilter) return;
+        if (value != null)
+        {
+            ControllerFilterChanged?.Invoke(this, value);
+        }
+        ApplyFilter(SelectedFilter);
+    }
+
+    public void UpdateFilterOptions(IEnumerable<ControllerFilterOption> options, string selectedKey)
+    {
+        _isUpdatingFilter = true;
+        try
+        {
+            ControllerFilterOptions.Clear();
+            foreach (var opt in options)
+            {
+                ControllerFilterOptions.Add(opt);
+            }
+
+            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
+                ?? ControllerFilterOptions.FirstOrDefault();
+        }
+        finally
+        {
+            _isUpdatingFilter = false;
+        }
+
+        ApplyFilter(SelectedFilter);
+    }
+
     [ObservableProperty]
     private string _selectedFilter = "Tümü";
 
@@ -107,6 +147,8 @@ public partial class SessionsViewModel : ViewModelBase
     {
         Sessions.Clear();
 
+        var selectedKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
+
         var today = DateTime.Today;
         int diffToMonday = ((int)today.DayOfWeek + 6) % 7;
         var startOfWeek = today.AddDays(-diffToMonday);
@@ -119,6 +161,7 @@ public partial class SessionsViewModel : ViewModelBase
         var filtered = _allSessions.Where(s =>
         {
             if (!s.EndedAtUtc.HasValue) return false;
+            if (selectedKey != "ALL" && s.DeviceKey != selectedKey) return false;
 
             var sDate = s.StartedAtUtc.ToLocalTime().Date;
             return filter switch
@@ -134,6 +177,7 @@ public partial class SessionsViewModel : ViewModelBase
         foreach (var act in activeList)
         {
             if (act == null || !act.IsActive) continue;
+            if (selectedKey != "ALL" && act.DeviceKey != selectedKey) continue;
 
             var activeDate = act.StartedAtUtc.ToLocalTime().Date;
             bool includeActive = filter switch
