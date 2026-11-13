@@ -139,4 +139,143 @@
         </Setter>
     </Style>
 
+    <!-- Modern Fluent ComboBox Açma Butonu -->
+    <Style x:Key="FluentComboBoxToggleButtonStyle" TargetType="ToggleButton">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="ClickMode" Value="Press"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="34"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Chevron Aşağı Oku -->
+                            <Path Grid.Column="1"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Data="M 0 0 L 4.5 4.5 L 9 0"
+                                  Stroke="{StaticResource BrushTextSecondary}"
+                                  StrokeThickness="1.5"
+                                  SnapsToDevicePixels="True"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                            <Setter TargetName="border" Property="Background" Value="#F8FAFC"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                            <Setter TargetName="border" Property="Background" Value="#F8FAFC"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Modern Fluent ComboBox Öğe Stili -->
+    <Style x:Key="FluentComboBoxItemStyle" TargetType="ComboBoxItem">
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="itemBorder"
+                            Background="Transparent"
+                            CornerRadius="6"
+                            Margin="3,1.5"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="itemBorder" Property="Background" Value="{StaticResource BrushBackgroundHover}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="itemBorder" Property="Background" Value="{StaticResource BrushBackgroundSelected}"/>
+                            <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Modern Fluent ComboBox Ana Stili -->
+    <Style x:Key="FluentComboBoxStyle" TargetType="ComboBox">
+        <Setter Property="ItemContainerStyle" Value="{StaticResource FluentComboBoxItemStyle}"/>
+        <Setter Property="Background" Value="#FFFFFF"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BrushBorderMedium}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <!-- Buton & Kenarlık -->
+                        <ToggleButton x:Name="toggleButton"
+                                      Style="{StaticResource FluentComboBoxToggleButtonStyle}"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+
+                        <!-- Seçili Öğe İçeriği -->
+                        <ContentPresenter x:Name="contentPresenter"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                          Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          IsHitTestVisible="False"/>
+
+                        <!-- Açılır Açılır Liste (Popup) -->
+                        <Popup x:Name="PART_Popup"
+                               AllowsTransparency="True"
+                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                               Placement="Bottom"
+                               PopupAnimation="Slide"
+                               Focusable="False">
+                            <Border x:Name="dropdownBorder"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                    MaxHeight="260"
+                                    Background="#FFFFFF"
+                                    BorderBrush="{StaticResource BrushBorderLight}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Margin="0,4,0,8"
+                                    Padding="4">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="16" Opacity="0.10" ShadowDepth="4" Direction="270" Color="#000000"/>
+                                </Border.Effect>
+                                <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

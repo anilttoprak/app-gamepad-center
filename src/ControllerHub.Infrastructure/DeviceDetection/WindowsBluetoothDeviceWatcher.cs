@@ -10,40 +10,81 @@ namespace ControllerHub.Infrastructure.DeviceDetection;
 
 public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 {
-    private readonly ConnectionDebouncePolicy _debouncePolicy;
+    private class TrackedBleTarget
+    {
+        public ulong MacAddress { get; }
+        public string DeviceId { get; set; }
+        public string Name { get; set; }
+        public DeviceInfo DeviceInfo { get; }
+        public ConnectionDebouncePolicy DebouncePolicy { get; }
+        public bool RawPresentSignal { get; set; }
+        public GattCharacteristic? BatteryCharacteristic { get; set; }
+
+        public TrackedBleTarget(ulong mac, string deviceId, string name)
+        {
+            MacAddress = mac;
+            DeviceId = deviceId;
+            Name = name;
+            DeviceInfo = new DeviceInfo
+            {
+                DeviceKey = $"XBOX_BLE_{mac:X}",
+                Name = name,
+                State = DeviceConnectionState.Disconnected,
+                ConnectionType = ControllerConnectionType.Bluetooth
+            };
+            DebouncePolicy = new ConnectionDebouncePolicy(TimeSpan.FromSeconds(4), TimeSpan.FromMilliseconds(500));
+        }
+    }
+
     private readonly BatteryFreshnessPolicy _batteryPolicy;
-    private readonly DeviceInfo _currentDevice;
+    private readonly Dictionary<ulong, TrackedBleTarget> _trackedDevices = new();
+    private readonly DeviceInfo _fallbackDefaultDevice;
     private readonly object _syncLock = new();
 
     private DeviceWatcher? _deviceWatcher;
     private CancellationTokenSource? _pollingCts;
-    private GattCharacteristic? _batteryCharacteristic;
-    private ulong? _discoveredMac;
-    private string? _discoveredDeviceId;
-    private bool _rawPresentSignal;
     private bool _disposed;
 
     public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged;
     public event EventHandler<int>? BatteryLevelUpdated;
 
-    public DeviceInfo CurrentDevice => _currentDevice;
+    public DeviceInfo CurrentDevice
+    {
+        get
+        {
+            lock (_syncLock)
+            {
+                var connected = _trackedDevices.Values.FirstOrDefault(t => t.DeviceInfo.IsConnected);
+                if (connected != null) return connected.DeviceInfo;
+
+                var first = _trackedDevices.Values.FirstOrDefault();
+                if (first != null) return first.DeviceInfo;
+
+                return _fallbackDefaultDevice;
+            }
+        }
+    }
+
     public IReadOnlyList<DeviceInfo> ConnectedDevices
     {
         get
         {
             lock (_syncLock)
             {
-                return _currentDevice.IsConnected ? new List<DeviceInfo> { _currentDevice } : Array.Empty<DeviceInfo>();
+                return _trackedDevices.Values
+                    .Where(t => t.DeviceInfo.IsConnected)
+                    .Select(t => t.DeviceInfo)
+                    .ToList();
             }
         }
     }
+
     public bool IsRunning { get; private set; }
 
     public WindowsBluetoothDeviceWatcher()
     {
-        _debouncePolicy = new ConnectionDebouncePolicy(TimeSpan.FromSeconds(4), TimeSpan.FromMilliseconds(500));
         _batteryPolicy = new BatteryFreshnessPolicy();
-        _currentDevice = new DeviceInfo
+        _fallbackDefaultDevice = new DeviceInfo
         {
             DeviceKey = "XBOX_CONTROLLER_DYNAMIC",
             Name = "Xbox Wireless Controller",
@@ -57,8 +98,8 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         if (IsRunning) return;
         IsRunning = true;
 
-        // 1. İlk olarak eşleştirilmiş Bluetooth LE kontrolcüsünü bul
-        await DiscoverTargetDeviceAsync();
+        // 1. Eşleştirilmiş tüm Bluetooth LE kontrolcülerini keşfet
+        await DiscoverTargetDevicesAsync();
 
         // 2. Windows PnP DeviceWatcher başlat
         StartPnpDeviceWatcher();
@@ -72,11 +113,27 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
     {
         IsRunning = false;
         _pollingCts?.Cancel();
-        _deviceWatcher?.Stop();
+        StopDeviceWatcherSafely();
         return Task.CompletedTask;
     }
 
-    private async Task DiscoverTargetDeviceAsync()
+    private void StopDeviceWatcherSafely()
+    {
+        if (_deviceWatcher != null)
+        {
+            try
+            {
+                if (_deviceWatcher.Status == DeviceWatcherStatus.Started ||
+                    _deviceWatcher.Status == DeviceWatcherStatus.EnumerationCompleted)
+                {
+                    _deviceWatcher.Stop();
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task DiscoverTargetDevicesAsync()
     {
         try
         {
@@ -87,26 +144,29 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
             {
                 if (IsXboxControllerName(d.Name))
                 {
-                    lock (_syncLock)
-                    {
-                        _discoveredDeviceId = d.Id;
-                        _currentDevice.Name = d.Name;
-                    }
-
                     try
                     {
                         var ble = await BluetoothLEDevice.FromIdAsync(d.Id);
                         if (ble != null)
                         {
+                            ulong mac = ble.BluetoothAddress;
                             lock (_syncLock)
                             {
-                                _discoveredMac = ble.BluetoothAddress;
-                                _currentDevice.DeviceKey = $"XBOX_BLE_{ble.BluetoothAddress:X}";
+                                if (!_trackedDevices.TryGetValue(mac, out var target))
+                                {
+                                    target = new TrackedBleTarget(mac, d.Id, d.Name);
+                                    _trackedDevices[mac] = target;
+                                }
+                                else
+                                {
+                                    target.DeviceId = d.Id;
+                                    target.Name = d.Name;
+                                    target.DeviceInfo.Name = d.Name;
+                                }
                             }
                         }
                     }
                     catch { }
-                    break;
                 }
             }
         }
@@ -131,36 +191,37 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 
     private void OnDeviceWatcherAddedOrUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
     {
-        if (_discoveredDeviceId != null && update.Id == _discoveredDeviceId)
+        _ = Task.Run(async () =>
         {
-            // Cihaz durumu güncellendi
-            _ = CheckDeviceStateAsync();
-        }
+            await CheckDeviceStateAsync();
+            EvaluateDebounce(DateTimeOffset.UtcNow);
+        });
     }
 
     private void OnDeviceWatcherAddedOrUpdated(DeviceWatcher sender, DeviceInformation info)
     {
         if (IsXboxControllerName(info.Name))
         {
-            lock (_syncLock)
+            _ = Task.Run(async () =>
             {
-                _discoveredDeviceId = info.Id;
-                _currentDevice.Name = info.Name;
-            }
-            _ = CheckDeviceStateAsync();
+                await DiscoverTargetDevicesAsync();
+                await CheckDeviceStateAsync();
+                EvaluateDebounce(DateTimeOffset.UtcNow);
+            });
         }
     }
 
     private void OnDeviceWatcherRemoved(DeviceWatcher sender, DeviceInformationUpdate update)
     {
-        if (_discoveredDeviceId != null && update.Id == _discoveredDeviceId)
+        lock (_syncLock)
         {
-            lock (_syncLock)
+            var target = _trackedDevices.Values.FirstOrDefault(t => t.DeviceId == update.Id);
+            if (target != null)
             {
-                _rawPresentSignal = false;
+                target.RawPresentSignal = false;
             }
-            EvaluateDebounce(DateTimeOffset.UtcNow);
         }
+        EvaluateDebounce(DateTimeOffset.UtcNow);
     }
 
     private async Task RunPollingLoopAsync(CancellationToken token)
@@ -173,30 +234,47 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
             EvaluateDebounce(DateTimeOffset.UtcNow);
 
             // Bağlıyken her 60 saniyede bir taze donanımsal pil okuması yap
-            if (_currentDevice.IsConnected && ++batteryCheckCounter % 60 == 0)
+            if (++batteryCheckCounter % 60 == 0)
             {
-                _ = RefreshBatteryAsync(DateTimeOffset.UtcNow);
+                List<TrackedBleTarget> connectedTargets;
+                lock (_syncLock)
+                {
+                    connectedTargets = _trackedDevices.Values.Where(t => t.DeviceInfo.IsConnected).ToList();
+                }
+
+                foreach (var target in connectedTargets)
+                {
+                    _ = RefreshBatteryForTargetAsync(target, DateTimeOffset.UtcNow);
+                }
             }
         }
     }
 
     private async Task CheckDeviceStateAsync()
     {
-        if (_discoveredMac == null && _discoveredDeviceId == null)
+        List<TrackedBleTarget> targets;
+        lock (_syncLock)
         {
-            await DiscoverTargetDeviceAsync();
+            targets = _trackedDevices.Values.ToList();
         }
 
-        bool isPresentNow = false;
-
-        if (_discoveredMac.HasValue)
+        if (targets.Count == 0)
         {
+            await DiscoverTargetDevicesAsync();
+            lock (_syncLock)
+            {
+                targets = _trackedDevices.Values.ToList();
+            }
+        }
+
+        foreach (var target in targets)
+        {
+            bool isPresentNow = false;
             try
             {
-                var ble = await BluetoothLEDevice.FromBluetoothAddressAsync(_discoveredMac.Value);
+                var ble = await BluetoothLEDevice.FromBluetoothAddressAsync(target.MacAddress);
                 if (ble != null)
                 {
-                    // BluetoothConnectionStatus.Connected kontrolü
                     isPresentNow = ble.ConnectionStatus == BluetoothConnectionStatus.Connected;
                 }
             }
@@ -204,59 +282,66 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
             {
                 isPresentNow = false;
             }
-        }
 
-        lock (_syncLock)
-        {
-            _rawPresentSignal = isPresentNow;
+            lock (_syncLock)
+            {
+                target.RawPresentSignal = isPresentNow;
+            }
         }
     }
 
     private void EvaluateDebounce(DateTimeOffset nowUtc)
     {
-        bool raw;
+        List<TrackedBleTarget> targets;
         lock (_syncLock)
         {
-            raw = _rawPresentSignal;
+            targets = _trackedDevices.Values.ToList();
         }
 
-        var previousState = _currentDevice.State;
-        var (newState, action) = _debouncePolicy.Evaluate(raw, nowUtc);
-
-        if (previousState != newState || action != DebounceAction.None)
+        foreach (var target in targets)
         {
-            _currentDevice.State = newState;
-
-            if (newState == DeviceConnectionState.Connected)
+            bool raw;
+            lock (_syncLock)
             {
-                // Bağlantı kuruldu; taze pil okuması yap
-                _ = RefreshBatteryAsync(nowUtc);
+                raw = target.RawPresentSignal;
             }
-            else if (newState == DeviceConnectionState.Disconnected)
+
+            var previousState = target.DeviceInfo.State;
+            var (newState, action) = target.DebouncePolicy.Evaluate(raw, nowUtc);
+
+            if (previousState != newState || action != DebounceAction.None)
             {
-                _currentDevice.BatteryLevel = null;
-                if (_batteryCharacteristic != null)
+                target.DeviceInfo.State = newState;
+
+                if (newState == DeviceConnectionState.Connected)
                 {
-                    try { _batteryCharacteristic.ValueChanged -= OnBatteryCharacteristicValueChanged; } catch { }
-                    _batteryCharacteristic = null;
+                    // Bağlantı kuruldu; taze pil okuması yap
+                    _ = RefreshBatteryForTargetAsync(target, nowUtc);
                 }
-            }
+                else if (newState == DeviceConnectionState.Disconnected)
+                {
+                    target.DeviceInfo.BatteryLevel = null;
+                    if (target.BatteryCharacteristic != null)
+                    {
+                        try { target.BatteryCharacteristic.ValueChanged -= OnBatteryCharacteristicValueChanged; } catch { }
+                        target.BatteryCharacteristic = null;
+                    }
+                }
 
-            ConnectionChanged?.Invoke(this, new DeviceConnectionChangedEventArgs(
-                newState,
-                _currentDevice,
-                action,
-                nowUtc));
+                ConnectionChanged?.Invoke(this, new DeviceConnectionChangedEventArgs(
+                    newState,
+                    target.DeviceInfo,
+                    action,
+                    nowUtc));
+            }
         }
     }
 
-    private async Task RefreshBatteryAsync(DateTimeOffset nowUtc)
+    private async Task RefreshBatteryForTargetAsync(TrackedBleTarget target, DateTimeOffset nowUtc)
     {
-        if (!_discoveredMac.HasValue) return;
-
         try
         {
-            var ble = await BluetoothLEDevice.FromBluetoothAddressAsync(_discoveredMac.Value);
+            var ble = await BluetoothLEDevice.FromBluetoothAddressAsync(target.MacAddress);
             if (ble == null || ble.ConnectionStatus != BluetoothConnectionStatus.Connected) return;
 
             var svcResult = await ble.GetGattServicesForUuidAsync(GattServiceUuids.Battery);
@@ -279,12 +364,12 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                         byte[] bytes = readResult.Value.ToArray();
                         if (bytes.Length > 0)
                         {
-                            ProcessRawBatteryReading(bytes[0], nowUtc);
+                            ProcessRawBatteryReading(target, bytes[0], nowUtc);
                         }
                     }
 
                     // 2. Kontrolcünün canlı pil bildirimlerine (GATT Notify) abone ol
-                    if (_batteryCharacteristic == null && ch.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))
+                    if (target.BatteryCharacteristic == null && ch.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))
                     {
                         try
                         {
@@ -292,8 +377,19 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                                 GattClientCharacteristicConfigurationDescriptorValue.Notify);
                             if (cccdStatus == GattCommunicationStatus.Success)
                             {
-                                _batteryCharacteristic = ch;
-                                _batteryCharacteristic.ValueChanged += OnBatteryCharacteristicValueChanged;
+                                target.BatteryCharacteristic = ch;
+                                target.BatteryCharacteristic.ValueChanged += (s, a) =>
+                                {
+                                    try
+                                    {
+                                        byte[] notifyBytes = a.CharacteristicValue.ToArray();
+                                        if (notifyBytes.Length > 0)
+                                        {
+                                            ProcessRawBatteryReading(target, notifyBytes[0], DateTimeOffset.UtcNow);
+                                        }
+                                    }
+                                    catch { }
+                                };
                             }
                         }
                         catch { }
@@ -306,18 +402,10 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 
     private void OnBatteryCharacteristicValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
     {
-        try
-        {
-            byte[] bytes = args.CharacteristicValue.ToArray();
-            if (bytes.Length > 0)
-            {
-                ProcessRawBatteryReading(bytes[0], DateTimeOffset.UtcNow);
-            }
-        }
-        catch { }
+        // Handled via target-specific lambda above
     }
 
-    private void ProcessRawBatteryReading(int rawPct, DateTimeOffset nowUtc)
+    private void ProcessRawBatteryReading(TrackedBleTarget target, int rawPct, DateTimeOffset nowUtc)
     {
         var validation = _batteryPolicy.ValidateReading(
             isDeviceConnected: true,
@@ -326,8 +414,11 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 
         if (validation.IsValid && validation.Percentage.HasValue)
         {
-            _currentDevice.BatteryLevel = validation.Percentage.Value;
-            _currentDevice.BatteryLastUpdatedAt = nowUtc;
+            lock (_syncLock)
+            {
+                target.DeviceInfo.BatteryLevel = validation.Percentage.Value;
+                target.DeviceInfo.BatteryLastUpdatedAt = nowUtc;
+            }
             BatteryLevelUpdated?.Invoke(this, validation.Percentage.Value);
         }
     }
@@ -352,14 +443,21 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         if (!_disposed)
         {
             _disposed = true;
-            if (_batteryCharacteristic != null)
+            lock (_syncLock)
             {
-                try { _batteryCharacteristic.ValueChanged -= OnBatteryCharacteristicValueChanged; } catch { }
-                _batteryCharacteristic = null;
+                foreach (var target in _trackedDevices.Values)
+                {
+                    if (target.BatteryCharacteristic != null)
+                    {
+                        try { target.BatteryCharacteristic.ValueChanged -= OnBatteryCharacteristicValueChanged; } catch { }
+                        target.BatteryCharacteristic = null;
+                    }
+                }
+                _trackedDevices.Clear();
             }
             _pollingCts?.Cancel();
             _pollingCts?.Dispose();
-            _deviceWatcher?.Stop();
+            StopDeviceWatcherSafely();
         }
     }
 }

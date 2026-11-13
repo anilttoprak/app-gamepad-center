@@ -27,13 +27,13 @@
 
                 <!-- Kontrolcü Bazında Filtreleme Açılır Kutusu (Çoklu Kol Analizi) -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,4"/>
-                    <ComboBox ItemsSource="{Binding ControllerFilterOptions}"
+                    <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,5"/>
+                    <ComboBox Style="{StaticResource FluentComboBoxStyle}"
+                              ItemsSource="{Binding ControllerFilterOptions}"
                               SelectedItem="{Binding SelectedControllerFilter}"
                               DisplayMemberPath="DisplayName"
-                              MinWidth="260" Height="38" Padding="10,6"
+                              MinWidth="260" Height="40" Padding="12,8"
                               FontSize="13" FontWeight="Medium"
-                              Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderMedium}" BorderThickness="1"
                               Cursor="Hand"/>
                 </StackPanel>
             </Grid>

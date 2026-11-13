@@ -179,7 +179,7 @@ public partial class DashboardViewModel : ViewModelBase
 
         var deviceKeys = _cachedSessions.Select(s => s.DeviceKey)
             .Concat(_sessionTracker?.ActiveSessions.Select(a => a.DeviceKey) ?? Enumerable.Empty<string>())
-            .Where(k => !string.IsNullOrEmpty(k))
+            .Where(k => !string.IsNullOrEmpty(k) && k != "XBOX_CONTROLLER_DYNAMIC")
             .Distinct()
             .ToList();
 
@@ -193,9 +193,17 @@ public partial class DashboardViewModel : ViewModelBase
             {
                 name = alias;
             }
-            else if (key.StartsWith("XINPUT"))
+            else if (key.StartsWith("XINPUT_SLOT_"))
             {
-                name = "USB Kablolu Oyun Kolu";
+                var slotStr = key["XINPUT_SLOT_".Length..];
+                name = int.TryParse(slotStr, out var slot)
+                    ? $"USB Kablolu Kol (Oyuncu {slot + 1})"
+                    : "USB Kablolu Oyun Kolu";
+            }
+            else if (key.StartsWith("XBOX_BLE_") && key.Length > 9)
+            {
+                var shortMac = key[9..];
+                name = $"Xbox Wireless Controller ({shortMac})";
             }
             else
             {

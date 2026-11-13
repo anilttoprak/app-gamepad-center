@@ -117,7 +117,8 @@ public class XInputDeviceWatcher : IDeviceWatcherService
                         slot.Device.Name = $"USB Kablolu Oyun Kolu (Oyuncu {i + 1})";
                         slot.Device.BatteryLevel = null; // Sürekli kablolu güç
                     }
-                    else
+                    else if (batInfo.BatteryType == XInputNative.BATTERY_TYPE_ALKALINE ||
+                             batInfo.BatteryType == XInputNative.BATTERY_TYPE_NIMH)
                     {
                         slot.Device.ConnectionType = ControllerConnectionType.WirelessAdapter;
                         slot.Device.Name = $"XInput Kablosuz Kol (Oyuncu {i + 1})";
@@ -126,8 +127,17 @@ public class XInputDeviceWatcher : IDeviceWatcherService
                             XInputNative.BATTERY_LEVEL_FULL => 100,
                             XInputNative.BATTERY_LEVEL_MEDIUM => 50,
                             XInputNative.BATTERY_LEVEL_LOW => 20,
-                            _ => 5
+                            XInputNative.BATTERY_LEVEL_EMPTY => 5,
+                            _ => null
                         };
+                    }
+                    else
+                    {
+                        // BATTERY_TYPE_DISCONNECTED veya BATTERY_TYPE_UNKNOWN
+                        // Windows Bluetooth köprüsü veya harici USB oyun kolları
+                        slot.Device.ConnectionType = ControllerConnectionType.WiredUsb;
+                        slot.Device.Name = $"USB Oyun Kolu (Oyuncu {i + 1})";
+                        slot.Device.BatteryLevel = null;
                     }
                 }
                 else
@@ -135,6 +145,7 @@ public class XInputDeviceWatcher : IDeviceWatcherService
                     // Fallback to standard XInput USB/Wired
                     slot.Device.ConnectionType = ControllerConnectionType.WiredUsb;
                     slot.Device.Name = $"PC Oyun Kolu (USB - Oyuncu {i + 1})";
+                    slot.Device.BatteryLevel = null;
                 }
             }
 
@@ -148,7 +159,7 @@ public class XInputDeviceWatcher : IDeviceWatcherService
                 if (newState == DeviceConnectionState.Connected)
                 {
                     slot.Device.BatteryLastUpdatedAt = nowUtc;
-                    if (slot.Device.BatteryLevel.HasValue)
+                    if (slot.Device.BatteryLevel.HasValue && slot.Device.ConnectionType == ControllerConnectionType.WirelessAdapter)
                     {
                         BatteryLevelUpdated?.Invoke(this, slot.Device.BatteryLevel.Value);
                     }

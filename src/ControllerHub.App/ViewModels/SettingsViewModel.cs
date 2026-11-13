@@ -146,9 +146,23 @@ public partial class SettingsViewModel : ViewModelBase
 
         foreach (var key in keys)
         {
-            string defaultName = key.StartsWith("XINPUT")
-                ? "USB Kablolu Oyun Kolu"
-                : "Xbox Wireless Controller";
+            string defaultName;
+            if (key.StartsWith("XINPUT_SLOT_"))
+            {
+                var slotStr = key["XINPUT_SLOT_".Length..];
+                defaultName = int.TryParse(slotStr, out var slot)
+                    ? $"USB Kablolu Oyun Kolu (Oyuncu {slot + 1})"
+                    : "USB Kablolu Oyun Kolu";
+            }
+            else if (key.StartsWith("XBOX_BLE_") && key.Length > 9)
+            {
+                var shortMac = key[9..];
+                defaultName = $"Xbox Wireless Controller ({shortMac})";
+            }
+            else
+            {
+                defaultName = "Xbox Wireless Controller";
+            }
 
             string currentAlias = customNames.TryGetValue(key, out var alias) ? alias : "";
 
