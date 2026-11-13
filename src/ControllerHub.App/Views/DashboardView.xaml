@@ -132,41 +132,76 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Sol: Son 7 Günlük Kullanım Grafiği (Gerçek SQLite Verisinden) -->
+                <!-- Sol: Son 7 Günlük Kullanım Grafiği (Çizgi Grafik - Gerçek SQLite Verisinden) -->
                 <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
-                        <Grid Margin="0,0,0,16">
+                        <Grid Margin="0,0,0,14">
                             <TextBlock Text="Son 7 Günlük Gerçek Bağlantı Süresi" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
                             <TextBlock Text="Saat cinsinden" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
 
-                        <ItemsControl ItemsSource="{Binding WeeklyActivity}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Rows="1" Height="140" VerticalAlignment="Bottom"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="6,0">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
+                        <Viewbox Stretch="Uniform" Height="140" HorizontalAlignment="Center">
+                            <Canvas Width="490" Height="130" ClipToBounds="False">
+                                <!-- Arka Plan Kılavuz Çizgileri -->
+                                <Line X1="20" Y1="92" X2="470" Y2="92" Stroke="{StaticResource BrushBorderLight}" StrokeThickness="1"/>
+                                <Line X1="20" Y1="60" X2="470" Y2="60" Stroke="{StaticResource BrushBorderLight}" StrokeThickness="1" StrokeDashArray="3,3" Opacity="0.6"/>
+                                <Line X1="20" Y1="28" X2="470" Y2="28" Stroke="{StaticResource BrushBorderLight}" StrokeThickness="1" StrokeDashArray="3,3" Opacity="0.6"/>
 
-                                        <!-- Saat Etiketi -->
-                                        <TextBlock Grid.Row="0" Text="{Binding DisplayText}" FontSize="10.5" Foreground="{StaticResource BrushTextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                <!-- Çizgi Altı Alan Dolgusu (Gradient) -->
+                                <Polygon Points="{Binding ActivityAreaPoints}">
+                                    <Polygon.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#402563EB" Offset="0"/>
+                                            <GradientStop Color="#022563EB" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Polygon.Fill>
+                                </Polygon>
 
-                                        <!-- Dinamik Çubuk -->
-                                        <Border Grid.Row="1" Width="28" Height="{Binding BarHeight}" Background="{StaticResource BrushAccent}" CornerRadius="5" HorizontalAlignment="Center"/>
+                                <!-- Ana Aktivite Çizgisi -->
+                                <Polyline Points="{Binding ActivityLinePoints}"
+                                          Stroke="{StaticResource BrushAccent}"
+                                          StrokeThickness="3"
+                                          StrokeLineJoin="Round"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"/>
 
-                                        <!-- Gün Adı -->
-                                        <TextBlock Grid.Row="2" Text="{Binding DayName}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                <!-- 7 Günlük Veri Noktaları (Süreler, Çizgi Noktaları ve Gün Başlıkları) -->
+                                <ItemsControl ItemsSource="{Binding WeeklyActivity}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <Canvas IsItemsHost="True"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding PointX}"/>
+                                            <Setter Property="Canvas.Top" Value="0"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Canvas Width="60" Height="130" Margin="-30,0,0,0">
+                                                <!-- Süre Değeri Etiketi -->
+                                                <TextBlock Canvas.Top="{Binding LabelTop}" Canvas.Left="0" Width="60"
+                                                           Text="{Binding DisplayText}" TextAlignment="Center"
+                                                           FontSize="10.5" FontWeight="{Binding LabelFontWeight}"
+                                                           Foreground="{Binding LabelBrushHex}"/>
+
+                                                <!-- Çizgi Üzerindeki Dairesel Nokta -->
+                                                <Ellipse Canvas.Top="{Binding DotTop}" Canvas.Left="25.5" Width="9" Height="9"
+                                                         Fill="White" Stroke="{StaticResource BrushAccent}" StrokeThickness="2.5"/>
+
+                                                <!-- Gün Adı (Bugün ise Vurgulu) -->
+                                                <TextBlock Canvas.Top="104" Canvas.Left="0" Width="60"
+                                                           Text="{Binding DayName}" TextAlignment="Center"
+                                                           FontSize="12" FontWeight="{Binding DayFontWeight}"
+                                                           Foreground="{Binding DayBrushHex}"/>
+                                            </Canvas>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Canvas>
+                        </Viewbox>
                     </StackPanel>
                 </Border>
 

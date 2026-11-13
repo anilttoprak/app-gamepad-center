@@ -328,7 +328,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         });
     }
 
-    private string _currentSelectedDeviceKey = "ALL";
+    private bool _isUserExplicitSelection = false;
+    private string _currentSelectedDeviceKey = "XBOX_BLE_78862EE89F4C";
 
     private async Task<List<ControllerFilterOption>> BuildFilterOptionsAsync()
     {
@@ -343,6 +344,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             .Where(s => s.DurationSeconds > 10 || activeKeys.Contains(s.DeviceKey))
             .Select(s => s.DeviceKey)
             .Concat(activeKeys)
+            .Concat(customNames.Keys)
             .Where(k => !string.IsNullOrEmpty(k) && k != "XBOX_CONTROLLER_DYNAMIC")
             .Distinct()
             .ToList();
@@ -392,6 +394,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         var options = await BuildFilterOptionsAsync();
 
+        // Varsayılan olarak "Anıl Xbox" kontrolcüsü seçilir
+        var anilOption = options.FirstOrDefault(o =>
+            o.DeviceKey == "XBOX_BLE_78862EE89F4C" ||
+            o.DisplayName.Contains("Anıl Xbox", StringComparison.OrdinalIgnoreCase) ||
+            o.DisplayName.Contains("Anil Xbox", StringComparison.OrdinalIgnoreCase));
+
+        // Kullanıcı bu oturumda elle başka bir seçim yapmadıysa varsayılan Anıl Xbox'tır
+        if (!_isUserExplicitSelection && anilOption != null)
+        {
+            _currentSelectedDeviceKey = anilOption.DeviceKey;
+        }
+        else if (!options.Any(o => o.DeviceKey == _currentSelectedDeviceKey))
+        {
+            _currentSelectedDeviceKey = anilOption?.DeviceKey ?? options.FirstOrDefault()?.DeviceKey ?? "ALL";
+        }
+
         DashboardVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
         SessionsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
         AnalyticsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
@@ -400,6 +418,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnFilterChangedFromView(string deviceKey, ViewModelBase source)
     {
+        _isUserExplicitSelection = true;
         _currentSelectedDeviceKey = deviceKey;
 
         if (source != DashboardVM) DashboardVM.SelectedControllerFilter = DashboardVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == deviceKey);

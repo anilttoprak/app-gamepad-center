@@ -162,6 +162,52 @@ public class DashboardDataTests : IDisposable
         Assert.Contains("bulunamadı", vm.StatusFeedback);
     }
 
+    [Fact]
+    public async Task Dashboard_WeeklyActivity_ShouldGenerateLineAndAreaPoints_ForSevenDays()
+    {
+        var s1Start = DateTimeOffset.UtcNow.AddHours(-2);
+        await _sessionRepo.StartSessionAsync("XBOX_TEST", s1Start);
+        await _sessionRepo.EndSessionAsync("XBOX_TEST", s1Start.AddMinutes(40), SessionEndReason.Disconnected);
+
+        var vm = new DashboardViewModel();
+        var dummyWatcher = new DummyDeviceWatcher();
+        var tracker = new SessionTrackerService(dummyWatcher, _sessionRepo, _batteryRepo);
+
+        vm.Initialize(_sessionRepo, _batteryRepo, tracker);
+        await vm.RefreshDataAsync();
+
+        // 7 gün noktası oluşturulmalı
+        Assert.Equal(7, vm.WeeklyActivity.Count);
+        Assert.Equal(7, vm.ActivityLinePoints.Count);
+        // Alan grafiği poligonu: sol alt taban + 7 nokta + sağ alt taban = 9 nokta
+        Assert.Equal(9, vm.ActivityAreaPoints.Count);
+
+        var todayItem = vm.WeeklyActivity[6];
+        Assert.Equal("Bugün", todayItem.DayName);
+        Assert.Equal("#2563EB", todayItem.DayBrushHex);
+        Assert.Equal("Bold", todayItem.DayFontWeight);
+        Assert.True(todayItem.PointX > 0);
+        Assert.True(todayItem.PointY > 0);
+    }
+
+    [Fact]
+    public void Dashboard_ShouldDefaultToAnilXbox_WhenAvailableInOptions()
+    {
+        var vm = new DashboardViewModel();
+        var options = new List<ControllerFilterOption>
+        {
+            new("ALL", "🔘 Tüm Kontrolcüler (Genel Özet)"),
+            new("XBOX_BLE_686CE6985F0F", "🎮 Yusuf Xbox"),
+            new("XBOX_BLE_78862EE89F4C", "🎮 Anıl Xbox")
+        };
+
+        vm.UpdateFilterOptions(options, "XBOX_BLE_78862EE89F4C");
+
+        Assert.NotNull(vm.SelectedControllerFilter);
+        Assert.Equal("XBOX_BLE_78862EE89F4C", vm.SelectedControllerFilter.DeviceKey);
+        Assert.Contains("Anıl Xbox", vm.SelectedControllerFilter.DisplayName);
+    }
+
     private class DummyDeviceWatcher : IDeviceWatcherService
     {
         public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged;

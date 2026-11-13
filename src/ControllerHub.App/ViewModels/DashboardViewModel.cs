@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ControllerHub.Core.Interfaces;
@@ -11,10 +13,21 @@ using Microsoft.Win32;
 
 namespace ControllerHub.App.ViewModels;
 
-public record DayActivityItem(string DayName, double Hours, double MaxHours)
+public record DayActivityItem(
+    string DayName,
+    double Hours,
+    double MaxHours,
+    double PointX = 0,
+    double PointY = 0)
 {
     public double BarHeight => Math.Clamp((Hours / Math.Max(0.5, MaxHours)) * 110, 6, 110);
     public string DisplayText => Hours >= 1.0 ? $"{Hours:0.#} sa" : (Hours > 0 ? $"{(int)(Hours * 60)} dk" : "0");
+    public double DotTop => PointY - 4.5;
+    public double LabelTop => Math.Max(4.0, PointY - 22.0);
+    public string LabelBrushHex => Hours > 0 ? "#2563EB" : "#98A2B3";
+    public string LabelFontWeight => Hours > 0 ? "Bold" : "SemiBold";
+    public string DayFontWeight => DayName == "Bugün" ? "Bold" : "Medium";
+    public string DayBrushHex => DayName == "Bugün" ? "#2563EB" : "#172033";
 }
 
 public record RecentSessionItem(string Date, string TimeRange, string Duration, string Reason, bool IsActive);
@@ -98,6 +111,12 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isEmptyState = true;
 
+    [ObservableProperty]
+    private PointCollection _activityLinePoints = new();
+
+    [ObservableProperty]
+    private PointCollection _activityAreaPoints = new();
+
     public ObservableCollection<DayActivityItem> WeeklyActivity { get; } = new();
     public ObservableCollection<RecentSessionItem> RecentSessions { get; } = new();
 
@@ -170,8 +189,11 @@ public partial class DashboardViewModel : ViewModelBase
         var sessions = await _sessionRepository.GetRecentSessionsAsync(1000);
         _cachedSessions = sessions.ToList();
 
-        // 2. Kontrolcü filtreleme seçeneklerini güncelle
-        await UpdateFilterOptionsAsync();
+        // 2. Kontrolcü filtreleme seçeneklerini sadece boşsa veya tek seçenekliyse güncelle (MainViewModel yönetir)
+        if (ControllerFilterOptions.Count <= 1)
+        {
+            await UpdateFilterOptionsAsync();
+        }
 
         // 3. Seçili filtreye göre metrikleri hesapla
         RecalculateFilteredMetrics();
@@ -213,6 +235,7 @@ public partial class DashboardViewModel : ViewModelBase
             .Where(s => s.DurationSeconds > 10 || activeKeys.Contains(s.DeviceKey))
             .Select(s => s.DeviceKey)
             .Concat(activeKeys)
+            .Concat(customNames.Keys)
             .Where(k => !string.IsNullOrEmpty(k) && k != "XBOX_CONTROLLER_DYNAMIC")
             .Distinct()
             .ToList();
@@ -239,16 +262,35 @@ public partial class DashboardViewModel : ViewModelBase
                 var shortMac = key[9..];
                 name = $"Xbox Wireless Controller ({shortMac})";
             }
+            else if (key.StartsWith("BT_") && key.Length > 3)
+            {
+                var shortMac = key[3..];
+                var displayMac = shortMac.Length > 4 ? shortMac[^4..] : shortMac;
+                name = $"Wireless Controller ({displayMac})";
+            }
             else
             {
-                name = "Xbox Wireless Controller";
+                name = "Kablosuz Kontrolcü";
             }
 
             ControllerFilterOptions.Add(new ControllerFilterOption(key, $"🎮 {name}"));
         }
 
-        SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == currentKey)
-            ?? ControllerFilterOptions.First();
+        var anilOption = ControllerFilterOptions.FirstOrDefault(o =>
+            o.DeviceKey == "XBOX_BLE_78862EE89F4C" ||
+            o.DisplayName.Contains("Anıl Xbox", StringComparison.OrdinalIgnoreCase) ||
+            o.DisplayName.Contains("Anil Xbox", StringComparison.OrdinalIgnoreCase));
+
+        if ((currentKey == "ALL" || string.IsNullOrEmpty(currentKey)) && anilOption != null)
+        {
+            SelectedControllerFilter = anilOption;
+        }
+        else
+        {
+            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == currentKey)
+                ?? anilOption
+                ?? ControllerFilterOptions.FirstOrDefault();
+        }
     }
 
     private void RecalculateFilteredMetrics()
@@ -357,10 +399,39 @@ public partial class DashboardViewModel : ViewModelBase
             dailyValues.Add((dayName, hours));
         }
 
-        foreach (var (dayName, hours) in dailyValues)
+        var linePts = new PointCollection();
+        var areaPts = new PointCollection();
+
+        const double baselineY = 92.0;
+        const double topY = 28.0;
+        const double rangeY = baselineY - topY; // 64.0
+        double effectiveMax = Math.Max(0.5, maxDayHours);
+
+        // Alan grafiği poligonunun ilk taban noktası
+        areaPts.Add(new Point(35.0, baselineY));
+
+        for (int i = 0; i < dailyValues.Count; i++)
         {
-            WeeklyActivity.Add(new DayActivityItem(dayName, hours, maxDayHours));
+            var (dayName, hours) = dailyValues[i];
+            double x = 35.0 + (i * 70.0);
+            double ratio = Math.Clamp(hours / effectiveMax, 0.0, 1.0);
+            double y = baselineY - (ratio * rangeY);
+
+            var pt = new Point(x, y);
+            linePts.Add(pt);
+            areaPts.Add(pt);
+
+            WeeklyActivity.Add(new DayActivityItem(dayName, hours, maxDayHours, x, y));
         }
+
+        // Alan grafiği poligonunun son taban noktası
+        areaPts.Add(new Point(455.0, baselineY));
+
+        linePts.Freeze();
+        areaPts.Freeze();
+
+        ActivityLinePoints = linePts;
+        ActivityAreaPoints = areaPts;
     }
 
     private void PopulateRecentSessions(
