@@ -51,7 +51,7 @@ public partial class MainWindow : Window
             e.Cancel = true;
             Hide();
             _trayManager.ShowNotification(
-                "Controller Hub Arka Planda",
+                "Gamepad Center Arka Planda",
                 "Uygulama sistem tepsisinde çalışmaya devam ediyor.");
         }
         else

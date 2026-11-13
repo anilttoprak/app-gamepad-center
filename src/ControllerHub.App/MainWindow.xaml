@@ -6,7 +6,7 @@
         xmlns:vm="clr-namespace:ControllerHub.App.ViewModels"
         xmlns:views="clr-namespace:ControllerHub.App.Views"
         mc:Ignorable="d"
-        Title="Controller Hub — Xbox Kontrol Merkezi" 
+        Title="Gamepad Center — Evrensel Kontrol Merkezi" 
         Height="780" Width="1180"
         MinHeight="640" MinWidth="980"
         WindowStartupLocation="CenterScreen"
@@ -60,8 +60,8 @@
                             <TextBlock Text="🎮" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Controller Hub" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
-                            <TextBlock Text="Xbox Kontrol Merkezi" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,1,0,0"/>
+                            <TextBlock Text="Gamepad Center" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                            <TextBlock Text="Evrensel Kontrol Merkezi" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,1,0,0"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>

@@ -22,7 +22,7 @@
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Kontrolcü Takma Adı Belirle" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
-                    <TextBlock x:Name="TxtHardwareInfo" Text="Xbox Wireless Controller" FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="TxtHardwareInfo" Text="Oyun Kolu" FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
                 </StackPanel>
             </Grid>
 

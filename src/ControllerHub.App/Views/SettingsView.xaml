@@ -23,7 +23,7 @@
                     <CheckBox IsChecked="{Binding StartWithWindows}" Margin="0,0,0,12" Cursor="Hand">
                         <StackPanel Margin="8,0,0,0">
                             <TextBlock Text="Windows açılışında otomatik başlat" FontSize="13.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}"/>
-                            <TextBlock Text="Kontrolcünüz bağlandığında oturumun kaçırılmaması için Controller Hub arka planda açılır." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
+                            <TextBlock Text="Kontrolcünüz bağlandığında oturumun kaçırılmaması için Gamepad Center arka planda açılır." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
                         </StackPanel>
                     </CheckBox>
                     <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
@@ -39,7 +39,7 @@
                     <CheckBox IsChecked="{Binding NotificationsEnabled}" Cursor="Hand">
                         <StackPanel Margin="8,0,0,0">
                             <TextBlock Text="Bağlantı bildirimlerini göster" FontSize="13.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}"/>
-                            <TextBlock Text="Xbox kontrolcünüz bağlandığında veya bağlantısı kesildiğinde Windows masaüstü bildirimi gösterir." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
+                            <TextBlock Text="Kontrolcünüz bağlandığında veya bağlantısı kesildiğinde Windows masaüstü bildirimi gösterir." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
                         </StackPanel>
                     </CheckBox>
                 </StackPanel>

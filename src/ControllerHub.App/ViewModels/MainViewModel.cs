@@ -59,7 +59,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private ViewModelBase _currentView;
 
     [ObservableProperty]
-    private string _activeControllerName = "Xbox Wireless Controller";
+    private string _activeControllerName = "Oyun Kolu";
 
     [ObservableProperty]
     private string _connectionStatusBadge = "⚪ Bağlı Değil";

@@ -97,7 +97,7 @@ public partial class DashboardViewModel : ViewModelBase
     private string _totalSessionsCount = "0";
 
     [ObservableProperty]
-    private string _activeControllerName = "Xbox Wireless Controller";
+    private string _activeControllerName = "Oyun Kolu";
 
     [ObservableProperty]
     private string _connectionStateText = "⚪ Bağlı Değil";

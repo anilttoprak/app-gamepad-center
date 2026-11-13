@@ -63,7 +63,7 @@ public partial class SettingsViewModel : ViewModelBase
     private string _appVersion = "1.0.0 (Windows 11 x64 / .NET 8)";
 
     [ObservableProperty]
-    private string _trackedControllerName = "Microsoft Xbox Wireless Controller (Model 1914)";
+    private string _trackedControllerName = "Evrensel Oyun Kolu (Tüm Cihazlar)";
 
     public ObservableCollection<ControllerNicknameItem> KnownControllers { get; } = new();
 

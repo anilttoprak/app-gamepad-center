@@ -22,7 +22,7 @@
 
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Text="Genel Bakış" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
-                    <TextBlock Text="Xbox kontrolcünüzün gerçek zamanlı bağlantı süreleri ve pil kullanım özeti." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
+                    <TextBlock Text="Oyun kolunuzun gerçek zamanlı bağlantı süreleri ve pil kullanım özeti." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
                 </StackPanel>
 
                 <!-- Kontrolcü Bazında Filtreleme Açılır Kutusu (Çoklu Kol Analizi) -->
@@ -116,10 +116,10 @@
                         <TextBlock Text="🎮" FontSize="26" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="Henüz Kaydedilmiş Oturum Bulunmuyor" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Xbox kontrolcünüz Bluetooth ile bağlandığında oturumunuz otomatik başlatılacak ve kullanım süreniz burada canlı sayılacaktır." 
+                    <TextBlock Text="Oyun kolunuz bağlandığında oturumunuz otomatik başlatılacak ve kullanım süreniz burada canlı sayılacaktır." 
                                FontSize="13" Foreground="{StaticResource BrushTextSecondary}" TextAlignment="Center" Margin="0,6,0,14" MaxWidth="520" TextWrapping="Wrap"/>
                     <Border Background="#ECFDF3" BorderBrush="#ABEFC6" BorderThickness="1" CornerRadius="8" Padding="12,8" HorizontalAlignment="Center">
-                        <TextBlock Text="💡 İpucu: Kontrolcünüzün ortasındaki Xbox logosuna basarak hemen açabilirsiniz." FontSize="12" Foreground="#067647" FontWeight="Medium"/>
+                        <TextBlock Text="💡 İpucu: Kontrolcünüzün açma tuşuna veya logosuna basarak hemen açabilirsiniz." FontSize="12" Foreground="#067647" FontWeight="Medium"/>
                     </Border>
                 </StackPanel>
             </Border>

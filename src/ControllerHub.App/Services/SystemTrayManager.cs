@@ -128,7 +128,7 @@ public class SystemTrayManager : IDisposable
             uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage = WM_TRAYCALLBACK,
             hIcon = _hIcon,
-            szTip = "Controller Hub - Xbox Oturum Takibi"
+            szTip = "Gamepad Center — Evrensel Kontrol Merkezi"
         };
 
         _isCreated = Shell_NotifyIcon(NIM_ADD, ref _notifyData);
@@ -139,7 +139,7 @@ public class SystemTrayManager : IDisposable
         _currentStatusText = statusText;
         if (!_isCreated || _disposed) return;
 
-        var tip = $"Controller Hub\n{statusText}";
+        var tip = $"Gamepad Center\n{statusText}";
         if (tip.Length > 120) tip = tip.Substring(0, 120);
 
         _notifyData.szTip = tip;
@@ -210,10 +210,10 @@ public class SystemTrayManager : IDisposable
             Placement = PlacementMode.MousePoint
         };
 
-        // 1. Controller Hub'ı Aç
+        // 1. Gamepad Center'ı Aç
         var showItem = new MenuItem
         {
-            Header = "Controller Hub'ı Göster",
+            Header = "Gamepad Center'ı Göster",
             FontWeight = FontWeights.SemiBold
         };
         showItem.Click += (_, _) =>
