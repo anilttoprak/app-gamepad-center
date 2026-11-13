@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
 using ControllerHub.Infrastructure.Export;
 using ControllerHub.Infrastructure.Persistence;
@@ -192,6 +193,49 @@ public class BatteryManagementTests : IDisposable
         {
             if (File.Exists(tempCsvFile)) File.Delete(tempCsvFile);
         }
+    }
+
+    [Fact]
+    public async Task BatteryViewModel_FirstBatterySetup_ShouldBackdateToFirstSessionAndSetSpecialType()
+    {
+        var sessionRepo = new SqliteSessionRepository(_context);
+        var firstSessionStart = DateTimeOffset.UtcNow.AddHours(-5);
+        await sessionRepo.StartSessionAsync("XBOX_TEST", firstSessionStart);
+        await sessionRepo.EndSessionAsync("XBOX_TEST", firstSessionStart.AddHours(2), SessionEndReason.Disconnected);
+
+        var vm = new ControllerHub.App.ViewModels.BatteryViewModel();
+        vm.Initialize(_repo, new DummyDeviceWatcher(), sessionRepo);
+        await vm.RefreshDataAsync();
+
+        Assert.True(vm.IsFirstBatterySetup);
+        Assert.Contains("İlk Pil", vm.BatteryFormTitle);
+        Assert.Contains("İlk Pil", vm.BatterySaveButtonText);
+
+        vm.BatteryNote = "Kutu İçi Fabrika Pili";
+        await vm.SaveBatteryChangeCommand.ExecuteAsync(null);
+
+        var changes = await _repo.GetBatteryChangesAsync(10);
+        Assert.Single(changes);
+        var initial = changes[0];
+        Assert.Equal("İlk Kurulum (Fabrika Çıkışı)", initial.ChangeType);
+        Assert.Null(initial.PreviousPercentage);
+        Assert.Equal(firstSessionStart.ToUniversalTime(), initial.ChangedAtUtc.ToUniversalTime());
+
+        Assert.False(vm.IsFirstBatterySetup);
+        Assert.Contains("Yeni Pil", vm.BatteryFormTitle);
+    }
+
+    private class DummyDeviceWatcher : IDeviceWatcherService
+    {
+        public event EventHandler<DeviceConnectionChangedEventArgs>? ConnectionChanged { add { } remove { } }
+        public event EventHandler<int>? BatteryLevelUpdated { add { } remove { } }
+
+        public DeviceInfo CurrentDevice { get; } = new() { DeviceKey = "XBOX_TEST", Name = "Xbox Controller" };
+        public bool IsRunning => false;
+
+        public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StopAsync() => Task.CompletedTask;
+        public void Dispose() { }
     }
 
     public void Dispose()

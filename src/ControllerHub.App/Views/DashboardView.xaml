@@ -158,7 +158,7 @@
                     <StackPanel>
                         <TextBlock Text="Hızlı İşlemler" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
 
-                        <Button Content="🔋  Pil Değiştirdim" Command="{Binding NavigateBatteryCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                        <Button Content="{Binding BatteryActionButtonText}" Command="{Binding NavigateBatteryCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         <Button Content="📋  Tüm Oturumları Gör" Command="{Binding ViewAllSessionsCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         <Button Content="💾  CSV Dışa Aktar" Command="{Binding ExportCsvCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,20"/>
 

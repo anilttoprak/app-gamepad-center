@@ -51,6 +51,9 @@ public partial class DashboardViewModel : ViewModelBase
     private string _batteryProposalText = "";
 
     [ObservableProperty]
+    private string _batteryActionButtonText = "🔋  İlk Pil Setini Tanımla";
+
+    [ObservableProperty]
     private string _statusFeedback = "";
 
     [ObservableProperty]
@@ -183,6 +186,9 @@ public partial class DashboardViewModel : ViewModelBase
                     ? "Kademeli Donanım Ölçümü"
                     : "Kaba Hassasiyet";
             }
+
+            var changes = await _batteryRepository.GetBatteryChangesAsync(1);
+            BatteryActionButtonText = changes.Count > 0 ? "🔋  Pil Değiştirdim" : "🔋  İlk Pil Setini Tanımla";
         }
     }
 

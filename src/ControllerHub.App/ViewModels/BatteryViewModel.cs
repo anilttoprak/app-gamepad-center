@@ -73,7 +73,19 @@ public partial class BatteryViewModel : ViewModelBase
     private int _manualPercentageInput = 100;
 
     [ObservableProperty]
-    private string _batteryNote = "Duracell Ultra AA (2'li set)";
+    private string _batteryNote = "Kutu İçeriği Pil (Duracell OEM 2'li set)";
+
+    [ObservableProperty]
+    private bool _isFirstBatterySetup = true;
+
+    [ObservableProperty]
+    private string _batteryFormTitle = "İlk Pil Setini Tanımla (Kutu İçeriği)";
+
+    [ObservableProperty]
+    private string _batteryFormSubtitle = "Gamepad'i yeni aldığınızda kutudan çıkan ilk pili kaydederek kullanım döngüsünü başlatın.";
+
+    [ObservableProperty]
+    private string _batterySaveButtonText = "🔋  İlk Pil Setini Başlat";
 
     [ObservableProperty]
     private string _statusFeedback = "";
@@ -165,6 +177,28 @@ public partial class BatteryViewModel : ViewModelBase
 
         HasChanges = ChangeHistory.Count > 0;
         IsEmptyChanges = !HasChanges;
+        IsFirstBatterySetup = !HasChanges;
+
+        if (IsFirstBatterySetup)
+        {
+            BatteryFormTitle = "İlk Pil Setini Tanımla (Kutu İçeriği)";
+            BatteryFormSubtitle = "Gamepad'i yeni aldığınızda kutudan çıkan ilk pili kaydederek kullanım döngüsünü başlatın. (Geriye dönük tüm oturumlarınız bu pile sayılır)";
+            BatterySaveButtonText = "🔋  İlk Pil Setini Başlat";
+            if (string.IsNullOrWhiteSpace(BatteryNote) || BatteryNote.Contains("Duracell Ultra"))
+            {
+                BatteryNote = "Kutu İçeriği Pil (Duracell OEM 2'li set)";
+            }
+        }
+        else
+        {
+            BatteryFormTitle = "Yeni Pil Seti Kaydet (Pil Değiştirildi)";
+            BatteryFormSubtitle = "Kontrolcünün pillerini değiştirdiğinizde buradan yeni bir kullanım döngüsü başlatın.";
+            BatterySaveButtonText = "💾  Pil Değişimini Kaydet";
+            if (BatteryNote.Contains("Kutu İçeriği"))
+            {
+                BatteryNote = "Duracell Ultra AA (2'li set)";
+            }
+        }
 
         // 3. Pil Performans Özeti Metrikleri
         if (performance.ActiveCycle != null)
@@ -276,15 +310,30 @@ public partial class BatteryViewModel : ViewModelBase
     {
         if (_batteryRepository == null) return;
 
+        var isFirst = ChangeHistory.Count == 0;
+        DateTimeOffset startTimestamp = DateTimeOffset.UtcNow;
+
+        // Eğer bu ilk pil seti ise, geriye dönük ilk oturumun başlangıç zamanını al
+        // Böylece gamepad ilk alındığından beri oynanmış tüm oturumlar bu ilk pile sayılır!
+        if (isFirst && _sessionRepository != null)
+        {
+            var pastSessions = await _sessionRepository.GetRecentSessionsAsync(1000);
+            var completed = pastSessions.Where(s => s.EndedAtUtc.HasValue).ToList();
+            if (completed.Count > 0)
+            {
+                startTimestamp = completed.Min(s => s.StartedAtUtc);
+            }
+        }
+
         var clamped = Math.Clamp(NewBatteryPercentage, 0, 100);
         var change = new BatteryChange
         {
             DeviceKey = _deviceWatcher?.CurrentDevice.DeviceKey ?? "XBOX_CONTROLLER_DYNAMIC",
-            ChangedAtUtc = DateTimeOffset.UtcNow,
-            PreviousPercentage = _lastKnownPercentage,
+            ChangedAtUtc = startTimestamp,
+            PreviousPercentage = isFirst ? null : _lastKnownPercentage,
             NewPercentage = clamped,
-            Note = string.IsNullOrWhiteSpace(BatteryNote) ? null : BatteryNote.Trim(),
-            ChangeType = "Manuel"
+            Note = string.IsNullOrWhiteSpace(BatteryNote) ? (isFirst ? "Kutu İçeriği Pil" : null) : BatteryNote.Trim(),
+            ChangeType = isFirst ? "İlk Kurulum (Fabrika Çıkışı)" : "Manuel"
         };
 
         await _batteryRepository.RecordBatteryChangeAsync(change);
@@ -297,13 +346,15 @@ public partial class BatteryViewModel : ViewModelBase
             Percentage = clamped,
             Source = BatterySource.Manual,
             Confidence = BatteryConfidence.Exact,
-            Note = $"Yeni pil seti: {change.Note}"
+            Note = isFirst ? $"İlk pil seti: {change.Note}" : $"Yeni pil seti: {change.Note}"
         });
 
         UpdateCurrentPercentage(clamped, change.ChangedAtUtc, BatterySource.Manual, BatteryConfidence.Exact, true);
         await RefreshDataAsync();
 
-        ShowFeedback("✅ Yeni pil seti başarıyla kaydedildi ve geçmişe eklendi!");
+        ShowFeedback(isFirst
+            ? "✅ İlk pil seti başarıyla tanımlandı! Oynadığınız tüm geçmiş oturumlar bu pile aktarıldı."
+            : "✅ Yeni pil seti başarıyla kaydedildi ve geçmişe eklendi!");
     }
 
     [RelayCommand]
