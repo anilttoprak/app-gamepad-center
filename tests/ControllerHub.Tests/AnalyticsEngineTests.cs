@@ -54,7 +54,8 @@ public class AnalyticsEngineTests
         var sessions = new List<ControllerSession> { s1, s2, s3 };
         var batteryChanges = new List<BatteryChange>
         {
-            new() { Id = 1, DeviceKey = "XBOX_TEST", ChangedAtUtc = DateTimeOffset.UtcNow }
+            new() { Id = 1, DeviceKey = "XBOX_TEST", ChangedAtUtc = new DateTimeOffset(2026, 11, 7, 10, 0, 0, TimeSpan.Zero), ChangeType = "İlk Kurulum (Fabrika Çıkışı)" },
+            new() { Id = 2, DeviceKey = "XBOX_TEST", ChangedAtUtc = new DateTimeOffset(2026, 11, 11, 15, 0, 0, TimeSpan.Zero), ChangeType = "Manual" }
         };
 
         var report = AnalyticsEngine.ComputeAnalytics(sessions, batteryChanges, null, localTz, nowUtc);
@@ -71,11 +72,11 @@ public class AnalyticsEngineTests
         Assert.Equal(DayOfWeek.Saturday, report.MostActiveDay);
         Assert.Equal(75.0, report.MostActiveDayPercentage);
 
-        // Toplam 3 oturum, 1 pil değişimi
+        // Toplam 3 oturum, 1 gerçek pil değişimi (ilk kurulum hariç)
         Assert.Equal(3, report.TotalSessionsCount);
         Assert.Equal(1, report.TotalBatteryChangesCount);
 
-        // Pil başına bağlantı tahmini: 14400 sn = 4 saat / 1 değişim = 4.0 saat
+        // Pil başına bağlantı tahmini: 1. tamamlanmış pil seti için 14400 sn = 4 saat / 1 döngü = 4.0 saat
         Assert.Equal(4.0, report.EstimatedHoursPerBatterySet);
     }
 

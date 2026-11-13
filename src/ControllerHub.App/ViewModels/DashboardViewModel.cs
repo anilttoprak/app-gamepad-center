@@ -19,15 +19,28 @@ public record DayActivityItem(string DayName, double Hours, double MaxHours)
 
 public record RecentSessionItem(string Date, string TimeRange, string Duration, string Reason, bool IsActive);
 
+public record ControllerFilterOption(string DeviceKey, string DisplayName);
+
 public partial class DashboardViewModel : ViewModelBase
 {
     private ISessionRepository? _sessionRepository;
     private IBatteryRepository? _batteryRepository;
+    private IControllerMetadataRepository? _metadataRepository;
     private SessionTrackerService? _sessionTracker;
 
     private List<ControllerSession> _cachedSessions = new();
 
     public override string Title => "Genel Bakış";
+
+    public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
+
+    [ObservableProperty]
+    private ControllerFilterOption? _selectedControllerFilter;
+
+    partial void OnSelectedControllerFilterChanged(ControllerFilterOption? value)
+    {
+        RecalculateFilteredMetrics();
+    }
 
     [ObservableProperty]
     private string _totalConnectionTime = "0 dk";
@@ -128,11 +141,13 @@ public partial class DashboardViewModel : ViewModelBase
     public void Initialize(
         ISessionRepository sessionRepository,
         IBatteryRepository batteryRepository,
-        SessionTrackerService sessionTracker)
+        SessionTrackerService sessionTracker,
+        IControllerMetadataRepository? metadataRepository = null)
     {
         _sessionRepository = sessionRepository;
         _batteryRepository = batteryRepository;
         _sessionTracker = sessionTracker;
+        _metadataRepository = metadataRepository;
 
         _sessionTracker.ActiveSessionTicked += OnActiveSessionTicked;
         _sessionTracker.SessionStarted += async (_, _) => await RefreshDataAsync();
@@ -143,57 +158,141 @@ public partial class DashboardViewModel : ViewModelBase
     {
         if (_sessionRepository == null) return;
 
-        var nowUtc = DateTimeOffset.UtcNow;
-        var activeSession = _sessionTracker?.ActiveSession;
-        var activeSessions = _sessionTracker?.ActiveSessions ?? (activeSession != null && activeSession.IsActive ? new[] { activeSession } : (IReadOnlyList<ControllerSession>)Array.Empty<ControllerSession>());
-
         // 1. Veritabanından tüm oturumları getir (Analiz ve KPI'lar için)
         var sessions = await _sessionRepository.GetRecentSessionsAsync(1000);
         _cachedSessions = sessions.ToList();
 
-        // 2. Toplam Süre & Bugünkü Süre (SessionTimeCalculator ile kesin matematiksel hesap)
-        var totalDuration = SessionTimeCalculator.CalculateTotalDurationMulti(_cachedSessions, activeSessions, nowUtc);
+        // 2. Kontrolcü filtreleme seçeneklerini güncelle
+        await UpdateFilterOptionsAsync();
+
+        // 3. Seçili filtreye göre metrikleri hesapla
+        RecalculateFilteredMetrics();
+    }
+
+    private async Task UpdateFilterOptionsAsync()
+    {
+        var customNames = _metadataRepository != null
+            ? await _metadataRepository.GetAllCustomNamesAsync()
+            : new Dictionary<string, string>();
+
+        var currentKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
+
+        var deviceKeys = _cachedSessions.Select(s => s.DeviceKey)
+            .Concat(_sessionTracker?.ActiveSessions.Select(a => a.DeviceKey) ?? Enumerable.Empty<string>())
+            .Where(k => !string.IsNullOrEmpty(k))
+            .Distinct()
+            .ToList();
+
+        ControllerFilterOptions.Clear();
+        ControllerFilterOptions.Add(new ControllerFilterOption("ALL", "🔘 Tüm Kontrolcüler (Genel Özet)"));
+
+        foreach (var key in deviceKeys)
+        {
+            string name;
+            if (customNames.TryGetValue(key, out var alias) && !string.IsNullOrWhiteSpace(alias))
+            {
+                name = alias;
+            }
+            else if (key.StartsWith("XINPUT"))
+            {
+                name = "USB Kablolu Oyun Kolu";
+            }
+            else
+            {
+                name = "Xbox Wireless Controller";
+            }
+
+            ControllerFilterOptions.Add(new ControllerFilterOption(key, $"🎮 {name}"));
+        }
+
+        SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == currentKey)
+            ?? ControllerFilterOptions.First();
+    }
+
+    private void RecalculateFilteredMetrics()
+    {
+        if (_sessionRepository == null) return;
+
+        var nowUtc = DateTimeOffset.UtcNow;
+        var activeSession = _sessionTracker?.ActiveSession;
+        var allActive = _sessionTracker?.ActiveSessions ?? (activeSession != null && activeSession.IsActive ? new[] { activeSession } : (IReadOnlyList<ControllerSession>)Array.Empty<ControllerSession>());
+
+        var filterKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
+
+        var filteredSessions = filterKey == "ALL"
+            ? _cachedSessions
+            : _cachedSessions.Where(s => s.DeviceKey == filterKey).ToList();
+
+        var filteredActive = filterKey == "ALL"
+            ? allActive
+            : allActive.Where(s => s.DeviceKey == filterKey).ToList();
+
+        // 1. Toplam Süre & Bugünkü Süre
+        var totalDuration = SessionTimeCalculator.CalculateTotalDurationMulti(filteredSessions, filteredActive, nowUtc);
         TotalConnectionTime = SessionTimeCalculator.FormatDurationText(totalDuration);
 
         var todayLocal = DateOnly.FromDateTime(DateTime.Now);
-        var todayDuration = SessionTimeCalculator.CalculateDayDurationMulti(_cachedSessions, activeSessions, todayLocal, TimeZoneInfo.Local, nowUtc);
+        var todayDuration = SessionTimeCalculator.CalculateDayDurationMulti(filteredSessions, filteredActive, todayLocal, TimeZoneInfo.Local, nowUtc);
         TodayConnectionTime = SessionTimeCalculator.FormatDurationText(todayDuration);
 
-        // 3. Toplam Oturum Sayısı (Yalnızca tamamlanmış oturumlar + aktif oturum sayısı)
-        int completedCount = _cachedSessions.Count(s => s.EndedAtUtc.HasValue);
-        int totalCount = completedCount + activeSessions.Count;
+        // 2. Toplam Oturum Sayısı
+        int completedCount = filteredSessions.Count(s => s.EndedAtUtc.HasValue);
+        int totalCount = completedCount + filteredActive.Count;
         TotalSessionsCount = totalCount.ToString();
 
         HasSessions = totalCount > 0;
         IsEmptyState = !HasSessions;
 
-        // 4. Son 7 Günlük Kullanım Grafiğini Gerçek Veriden Üret
-        GenerateWeeklyActivity(todayLocal, nowUtc, activeSessions);
+        // 3. Son 7 Günlük Kullanım Grafiği
+        GenerateWeeklyActivity(todayLocal, nowUtc, filteredActive, filteredSessions);
 
-        // 5. Son Oturumlar Tablosunu Gerçek Veriden Doldur
-        PopulateRecentSessions(activeSessions);
+        // 4. Son Oturumlar Tablosu
+        PopulateRecentSessions(filteredActive, filteredSessions);
 
-        // 6. Son Bilinen Pil Seviyesini Getir
-        if (_batteryRepository != null)
-        {
-            var latestBattery = await _batteryRepository.GetLatestReadingAsync();
-            if (latestBattery?.Percentage != null)
-            {
-                BatteryLevelText = $"%{latestBattery.Percentage.Value}";
-                BatterySourceText = latestBattery.Source == BatterySource.WindowsApiGatt
-                    ? "Bluetooth GATT (0x180F)"
-                    : (latestBattery.Source == BatterySource.Manual ? "Manuel Giriş" : "XInput");
-                BatteryConfidenceBadge = latestBattery.Confidence == BatteryConfidence.Exact
-                    ? "Kademeli Donanım Ölçümü"
-                    : "Kaba Hassasiyet";
-            }
-
-            var changes = await _batteryRepository.GetBatteryChangesAsync(1);
-            BatteryActionButtonText = changes.Count > 0 ? "🔋  Pil Değiştirdim" : "🔋  İlk Pil Setini Tanımla";
-        }
+        // 5. Pil Bilgisi
+        _ = UpdateBatteryInfoAsync(filterKey);
     }
 
-    private void GenerateWeeklyActivity(DateOnly todayLocal, DateTimeOffset nowUtc, IReadOnlyList<ControllerSession> activeSessions)
+    private async Task UpdateBatteryInfoAsync(string filterKey)
+    {
+        if (_batteryRepository == null) return;
+
+        var latestBattery = filterKey == "ALL"
+            ? await _batteryRepository.GetLatestReadingAsync()
+            : await _batteryRepository.GetLatestReadingAsync(filterKey);
+
+        if (latestBattery?.Percentage != null)
+        {
+            BatteryLevelText = $"%{latestBattery.Percentage.Value}";
+            BatterySourceText = latestBattery.Source == BatterySource.WindowsApiGatt
+                ? "Bluetooth GATT (0x180F)"
+                : (latestBattery.Source == BatterySource.Manual ? "Manuel Giriş" : "XInput");
+            BatteryConfidenceBadge = latestBattery.Confidence == BatteryConfidence.Exact
+                ? "Kademeli Donanım Ölçümü"
+                : "Kaba Hassasiyet";
+        }
+        else if (filterKey.StartsWith("XINPUT"))
+        {
+            BatteryLevelText = "🔌";
+            BatterySourceText = "USB Sürekli Güç (Kablolu)";
+            BatteryConfidenceBadge = "Kablolu Bağlantı";
+        }
+        else
+        {
+            BatteryLevelText = "Bilinmiyor";
+            BatterySourceText = "Ölçüm Bekleniyor";
+            BatteryConfidenceBadge = "-";
+        }
+
+        var changes = await _batteryRepository.GetBatteryChangesAsync(1);
+        BatteryActionButtonText = changes.Count > 0 ? "🔋  Pil Değiştirdim" : "🔋  İlk Pil Setini Tanımla";
+    }
+
+    private void GenerateWeeklyActivity(
+        DateOnly todayLocal,
+        DateTimeOffset nowUtc,
+        IReadOnlyList<ControllerSession> activeSessions,
+        IReadOnlyList<ControllerSession> sessionsToUse)
     {
         WeeklyActivity.Clear();
 
@@ -204,7 +303,7 @@ public partial class DashboardViewModel : ViewModelBase
         for (int i = 6; i >= 0; i--)
         {
             var date = todayLocal.AddDays(-i);
-            var dayDuration = SessionTimeCalculator.CalculateDayDurationMulti(_cachedSessions, activeSessions, date, TimeZoneInfo.Local, nowUtc);
+            var dayDuration = SessionTimeCalculator.CalculateDayDurationMulti(sessionsToUse, activeSessions, date, TimeZoneInfo.Local, nowUtc);
             var hours = dayDuration.TotalHours;
 
             if (hours > maxDayHours)
@@ -222,7 +321,9 @@ public partial class DashboardViewModel : ViewModelBase
         }
     }
 
-    private void PopulateRecentSessions(IReadOnlyList<ControllerSession> activeSessions)
+    private void PopulateRecentSessions(
+        IReadOnlyList<ControllerSession> activeSessions,
+        IReadOnlyList<ControllerSession> sessionsToUse)
     {
         RecentSessions.Clear();
 
@@ -244,7 +345,7 @@ public partial class DashboardViewModel : ViewModelBase
             }
         }
 
-        var completedSessions = _cachedSessions.Where(s => s.EndedAtUtc.HasValue).ToList();
+        var completedSessions = sessionsToUse.Where(s => s.EndedAtUtc.HasValue).ToList();
         int remainingSlots = Math.Max(1, 5 - RecentSessions.Count);
         foreach (var s in completedSessions.Take(remainingSlots))
         {
@@ -278,35 +379,7 @@ public partial class DashboardViewModel : ViewModelBase
     {
         System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
         {
-            var nowUtc = DateTimeOffset.UtcNow;
-            var activeSessions = _sessionTracker?.ActiveSessions;
-            var activeSession = _sessionTracker?.ActiveSession;
-
-            // Toplam ve bugünkü süreyi canlı sayaçla anlık ilerlet
-            var total = SessionTimeCalculator.CalculateTotalDurationMulti(_cachedSessions, activeSessions, nowUtc);
-            TotalConnectionTime = SessionTimeCalculator.FormatDurationText(total);
-
-            var todayLocal = DateOnly.FromDateTime(DateTime.Now);
-            var today = SessionTimeCalculator.CalculateDayDurationMulti(_cachedSessions, activeSessions, todayLocal, TimeZoneInfo.Local, nowUtc);
-            TodayConnectionTime = SessionTimeCalculator.FormatDurationText(today);
-
-            // Tablodaki aktif elemanların süresini güncelle
-            if (activeSessions != null && activeSessions.Count > 0)
-            {
-                for (int i = 0; i < RecentSessions.Count; i++)
-                {
-                    if (!RecentSessions[i].IsActive) break;
-                    if (i < activeSessions.Count)
-                    {
-                        var actDur = activeSessions[i].GetEffectiveDuration(nowUtc);
-                        RecentSessions[i] = RecentSessions[i] with { Duration = SessionTimeCalculator.FormatDurationText(actDur) };
-                    }
-                }
-            }
-            else if (RecentSessions.Count > 0 && RecentSessions[0].IsActive)
-            {
-                RecentSessions[0] = RecentSessions[0] with { Duration = SessionTimeCalculator.FormatDurationText(activeDuration) };
-            }
+            RecalculateFilteredMetrics();
         });
     }
 

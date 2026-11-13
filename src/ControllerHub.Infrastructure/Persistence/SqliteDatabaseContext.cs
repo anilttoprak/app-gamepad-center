@@ -97,6 +97,12 @@ public class SqliteDatabaseContext
             CREATE TABLE IF NOT EXISTS Settings (
                 Key TEXT PRIMARY KEY,
                 Value TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS ControllerMetadata (
+                DeviceKey TEXT PRIMARY KEY,
+                CustomName TEXT NOT NULL,
+                UpdatedAtUtc TEXT NOT NULL
             );";
         cmd.ExecuteNonQuery();
     }

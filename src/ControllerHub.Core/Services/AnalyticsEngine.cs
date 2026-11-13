@@ -131,12 +131,14 @@ public static class AnalyticsEngine
             yearSeconds += (int)activeSession.GetEffectiveDuration(nowUtc).TotalSeconds;
         }
 
-        // 6. Pil Başına Düşen Ortalama Bağlantı Süresi (Tahmin)
+        // 6. Pil Başına Düşen Ortalama Bağlantı Süresi (Gerçek tamamlanmış döngü hesabı)
+        var actualChanges = batteryChanges.Where(c => c.ChangeType != "İlk Kurulum (Fabrika Çıkışı)").ToList();
+        var performance = BatteryCycleCalculator.ComputePerformance(sessions, batteryChanges, activeSession, nowUtc);
+
         double? hoursPerSet = null;
-        if (batteryChanges.Count > 0 && totalAllSeconds > 0)
+        if (performance.AverageDurationPerCycle > TimeSpan.Zero)
         {
-            var totalHours = totalAllSeconds / 3600.0;
-            hoursPerSet = Math.Round(totalHours / batteryChanges.Count, 1);
+            hoursPerSet = Math.Round(performance.AverageDurationPerCycle.TotalHours, 1);
         }
 
         return new AnalyticsReport(
@@ -149,7 +151,7 @@ public static class AnalyticsEngine
             ThisMonthTotal: TimeSpan.FromSeconds(monthSeconds),
             ThisYearTotal: TimeSpan.FromSeconds(yearSeconds),
             TotalSessionsCount: sessions.Count(s => s.EndedAtUtc.HasValue) + (activeSession != null && activeSession.IsActive ? 1 : 0),
-            TotalBatteryChangesCount: batteryChanges.Count,
+            TotalBatteryChangesCount: actualChanges.Count,
             EstimatedHoursPerBatterySet: hoursPerSet);
     }
 }

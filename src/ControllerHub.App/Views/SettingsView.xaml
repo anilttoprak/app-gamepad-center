@@ -45,7 +45,50 @@
                 </StackPanel>
             </Border>
 
-            <!-- 2. Veritabanı ve Yerel Saklama -->
+            <!-- 2. Kontrolcülerim ve Takma Adlar (Çoklu Kol & Kişiselleştirme) -->
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Kontrolcülerim ve Takma Adlar" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,6"/>
+                    <TextBlock Text="Bilgisayarınıza bağlanan kontrolcülere özel isimler vererek Dashboard ve geçmişte kolayca ayırt edin." FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,14"/>
+
+                    <ItemsControl ItemsSource="{Binding KnownControllers}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Column="0" Width="36" Height="36" Background="{StaticResource BrushAccent}" CornerRadius="8" Margin="0,0,12,0" VerticalAlignment="Center">
+                                            <TextBlock Text="🎮" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                            <TextBlock Text="{Binding DefaultName}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                            <TextBlock Text="{Binding DeviceKey}" FontSize="10.5" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                            <TextBox Text="{Binding CustomName, UpdateSourceTrigger=PropertyChanged}" Width="180" Padding="8,6" FontSize="12.5" 
+                                                     Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderMedium}" BorderThickness="1"
+                                                     ToolTip="Örn: Siyah Kol, Logitech F310"/>
+                                            <Button Content="💾 Kaydet" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Padding="10,6" Command="{Binding SaveCommand}"/>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="3" Text="{Binding StatusMessage}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushSuccess}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. Veritabanı ve Yerel Saklama -->
             <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,20">
                 <StackPanel>
                     <TextBlock Text="Veri Depolama ve Gizlilik" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,14"/>

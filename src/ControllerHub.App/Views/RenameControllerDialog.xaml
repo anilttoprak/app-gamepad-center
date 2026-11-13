@@ -1,0 +1,44 @@
+<Window x:Class="ControllerHub.App.Views.RenameControllerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Kontrolcüye İsim Ver"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{StaticResource BrushBackgroundPage}"
+        Foreground="{StaticResource BrushTextPrimary}">
+
+    <Border Padding="24" Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="12" Margin="12">
+        <StackPanel>
+            <!-- Başlık ve İkon -->
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Width="40" Height="40" Background="{StaticResource BrushAccent}" CornerRadius="10" Margin="0,0,12,0">
+                    <TextBlock Text="🎮" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Kontrolcü Takma Adı Belirle" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                    <TextBlock x:Name="TxtHardwareInfo" Text="Xbox Wireless Controller" FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="Takma Ad (Örn: Siyah Kol, Ana Gamepad, Logitech):" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+            <TextBox x:Name="TxtCustomName" Padding="12,10" FontSize="13.5" Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderMedium}" BorderThickness="1" Margin="0,0,0,20"/>
+
+            <!-- Butonlar -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Content="İptal" Style="{StaticResource SecondaryButtonStyle}" Click="Cancel_Click"/>
+                <Button Grid.Column="2" Content="💾  Kaydet" Style="{StaticResource PrimaryButtonStyle}" Click="Save_Click"/>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

@@ -13,6 +13,7 @@
         Background="{StaticResource BrushBackgroundPage}">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <!-- DataTemplates: ViewModel -> View Eşleşmeleri -->
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
             <views:DashboardView/>
@@ -83,20 +84,61 @@
                                  Command="{Binding NavigateCommand}" CommandParameter="Settings"/>
                 </StackPanel>
 
-                <!-- 3. Alt Cihaz Durum Kartı & Debug / Tanılama Rozeti (Aşama 2) -->
-                <Border Grid.Row="3" Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="10" Padding="12">
+                <!-- 3. Alt Cihaz Durum Paneli (Bağlı Kontrolcüler ve Tanılama) -->
+                <Border Grid.Row="3" Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="10" Padding="10">
                     <StackPanel>
-                        <TextBlock Text="{Binding ActiveControllerName}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
-                        <Grid Margin="0,6,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <!-- Canlı Durum Noktası -->
-                            <Ellipse Grid.Column="0" Width="8" Height="8" Fill="{Binding StatusColorBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock Grid.Column="1" Text="{Binding ConnectionStatusBadge}" FontSize="11.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
-                        </Grid>
-                        <!-- Debug / Tanılama Paneli (Spec Aşama 2 - Görev 7) -->
+                        <TextBlock Text="BAĞLI KONTROLCÜLER" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushTextMuted}" Margin="2,0,0,6"/>
+
+                        <!-- Eğer hiç kol bağlı değilse gösterilecek durum -->
+                        <Border Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,8"
+                                Visibility="{Binding HasNoConnectedControllers, Converter={StaticResource BoolToVis}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0" Width="8" Height="8" Fill="#98A2B3" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Grid.Column="1" Text="Bağlı Kontrolcü Yok" FontSize="11.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Bağlı kontrolcüler listesi -->
+                        <ItemsControl ItemsSource="{Binding ConnectedControllers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- İkon -->
+                                            <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="15" VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+                                            <!-- İsim ve Detay -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                    <Ellipse Width="6" Height="6" Fill="#12B76A" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="{Binding ConnectionBadge}" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <TextBlock Text="{Binding BatteryText}" FontSize="10" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <!-- Takma Ad Düzenle Butonu -->
+                                            <Button Grid.Column="2" Content="✏️" FontSize="11" Padding="4,2" Cursor="Hand" Background="Transparent" BorderThickness="0"
+                                                    ToolTip="Takma Adı Değiştir"
+                                                    Command="{Binding DataContext.RenameControllerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Debug / Tanılama Paneli -->
                         <Border Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="6" Padding="6,4">
                             <TextBlock Text="{Binding HardwareDiagnosticsText}" FontSize="9.5" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
                         </Border>

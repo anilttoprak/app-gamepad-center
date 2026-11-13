@@ -13,11 +13,28 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="28,24,28,32">
 
-            <!-- Başlık ve Kontrolcü Bilgisi -->
+            <!-- Başlık ve Kontrolcü Bilgisi / Filtresi -->
             <Grid Margin="0,0,0,20">
-                <StackPanel>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Text="Genel Bakış" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
                     <TextBlock Text="Xbox kontrolcünüzün gerçek zamanlı bağlantı süreleri ve pil kullanım özeti." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <!-- Kontrolcü Bazında Filtreleme Açılır Kutusu (Çoklu Kol Analizi) -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding ControllerFilterOptions}"
+                              SelectedItem="{Binding SelectedControllerFilter}"
+                              DisplayMemberPath="DisplayName"
+                              MinWidth="260" Height="38" Padding="10,6"
+                              FontSize="13" FontWeight="Medium"
+                              Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderMedium}" BorderThickness="1"
+                              Cursor="Hand"/>
                 </StackPanel>
             </Grid>
 

@@ -238,4 +238,66 @@ public class MultiDeviceArchitectureTests : IDisposable
         bool isSupported = WindowsBluetoothDeviceWatcher.IsSupportedControllerName(deviceName);
         Assert.Equal(expectedSupported, isSupported);
     }
+
+    [Fact]
+    public async Task ControllerMetadataRepository_SaveAndRetrieveCustomName()
+    {
+        var metaRepo = new SqliteControllerMetadataRepository(_context);
+
+        // Henüz kaydedilmemiş bir cihaz için null dönmeli
+        var initial = await metaRepo.GetCustomNameAsync("XBOX_BLE_TEST_99");
+        Assert.Null(initial);
+
+        // Takma ad kaydet
+        await metaRepo.SetCustomNameAsync("XBOX_BLE_TEST_99", "Siyah Xbox Kolum");
+
+        var retrieved = await metaRepo.GetCustomNameAsync("XBOX_BLE_TEST_99");
+        Assert.Equal("Siyah Xbox Kolum", retrieved);
+
+        // Tüm takma adları getir
+        var all = await metaRepo.GetAllCustomNamesAsync();
+        Assert.True(all.ContainsKey("XBOX_BLE_TEST_99"));
+        Assert.Equal("Siyah Xbox Kolum", all["XBOX_BLE_TEST_99"]);
+
+        // Güncelle
+        await metaRepo.SetCustomNameAsync("XBOX_BLE_TEST_99", "Oturma Odası Kolu");
+        var updated = await metaRepo.GetCustomNameAsync("XBOX_BLE_TEST_99");
+        Assert.Equal("Oturma Odası Kolu", updated);
+    }
+
+    [Fact]
+    public void AnalyticsEngine_InitialSetupOnly_ReturnsZeroActualChanges()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var sessions = new List<ControllerSession>
+        {
+            new ControllerSession
+            {
+                Id = 1,
+                DeviceKey = "XBOX_1",
+                StartedAtUtc = now.AddMinutes(-30),
+                EndedAtUtc = now.AddMinutes(-20),
+                DurationSeconds = 600
+            }
+        };
+
+        var changes = new List<BatteryChange>
+        {
+            new BatteryChange
+            {
+                Id = 1,
+                DeviceKey = "XBOX_1",
+                ChangedAtUtc = now.AddMinutes(-30),
+                ChangeType = "İlk Kurulum (Fabrika Çıkışı)",
+                NewPercentage = 100
+            }
+        };
+
+        var report = AnalyticsEngine.ComputeAnalytics(sessions, changes, null, TimeZoneInfo.Local, now);
+
+        // İlk kurulum bir değişim sayılmamalı
+        Assert.Equal(0, report.TotalBatteryChangesCount);
+        // Henüz tamamlanmış bir pil döngüsü olmadığı için ortalama süre yetersiz olmalı
+        Assert.Null(report.EstimatedHoursPerBatterySet);
+    }
 }

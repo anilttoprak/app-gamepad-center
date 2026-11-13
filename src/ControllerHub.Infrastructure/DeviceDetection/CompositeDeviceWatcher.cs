@@ -1,5 +1,6 @@
 using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
+using ControllerHub.Core.Policies;
 
 namespace ControllerHub.Infrastructure.DeviceDetection;
 
@@ -11,6 +12,7 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
 {
     private readonly IDeviceWatcherService _bleWatcher;
     private readonly XInputDeviceWatcher _xinputWatcher;
+    private readonly HashSet<int> _suppressedSlots = new();
     private readonly object _syncLock = new();
     private bool _disposed;
 
@@ -40,7 +42,7 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
             {
                 var result = new List<DeviceInfo>();
 
-                // 1. Bluetooth üzerinden bağlı cihazlar (Örn: Xbox Kablosuz, DualSense)
+                // 1. Bluetooth üzerinden bağlı donanımlar (Örn: Xbox Kablosuz, DualSense)
                 var bleConnected = _bleWatcher.ConnectedDevices;
                 result.AddRange(bleConnected);
 
@@ -49,17 +51,11 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
 
                 foreach (var xDev in xinputConnected)
                 {
-                    // Eğer kol kabloluysa (USB Logitech, kablolu Xbox vb.) kesinlikle bağımsız cihazdır
-                    if (xDev.ConnectionType == ControllerConnectionType.WiredUsb)
+                    int slot = xDev.PlayerIndex ?? 0;
+                    if (!_suppressedSlots.Contains(slot))
                     {
-                        result.Add(xDev);
-                    }
-                    else
-                    {
-                        // Kablosuz XInput slotu: Eğer BLE ile bağlı bir kol zaten varsa ve bu ilk kablosuz slot ise,
-                        // Windows'un BLE kolunu XInput'a yansıtmasıdır; çift kayıt olmaması için atla.
-                        // Ancak BLE'deki kol sayısından fazla kablosuz slot varsa (2. kablosuz alıcı gibi), onu da ekle.
-                        if (bleConnected.Count == 0 || result.Count(d => d.ConnectionType == ControllerConnectionType.WirelessAdapter) < xinputConnected.Count(d => d.ConnectionType == ControllerConnectionType.WirelessAdapter) - bleConnected.Count)
+                        // Sadece BLE cihazlarının sayısını aşan gerçek ekstra donanımları ekle
+                        if (xinputConnected.Count > bleConnected.Count && !result.Any(d => d.DeviceKey == xDev.DeviceKey))
                         {
                             result.Add(xDev);
                         }
@@ -99,7 +95,32 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
 
     private void OnBleConnectionChanged(object? sender, DeviceConnectionChangedEventArgs e)
     {
-        ConnectionChanged?.Invoke(this, e);
+        lock (_syncLock)
+        {
+            if (e.Action == DebounceAction.SessionStarted)
+            {
+                // Eğer BLE bağlanmadan önce bir XInput slotu bağlanmış ve henüz bastırılmamışsa,
+                // o slot aslında bu BLE kolunun Windows sanal yansımasıdır. Onu hemen bastır ve kapat.
+                var unsuppressed = _xinputWatcher.ConnectedDevices
+                    .Where(d => d.PlayerIndex.HasValue && !_suppressedSlots.Contains(d.PlayerIndex.Value))
+                    .ToList();
+
+                if (unsuppressed.Count > 0)
+                {
+                    var shadowDev = unsuppressed[0];
+                    _suppressedSlots.Add(shadowDev.PlayerIndex!.Value);
+
+                    // Bu sanal XInput slotu için açılmış olabilecek sahte oturumu sonlandır
+                    ConnectionChanged?.Invoke(this, new DeviceConnectionChangedEventArgs(
+                        DeviceConnectionState.Disconnected,
+                        shadowDev,
+                        DebounceAction.SessionEnded,
+                        e.TimestampUtc));
+                }
+            }
+
+            ConnectionChanged?.Invoke(this, e);
+        }
     }
 
     private void OnBleBatteryLevelUpdated(object? sender, int batteryPercentage)
@@ -109,20 +130,36 @@ public class CompositeDeviceWatcher : IDeviceWatcherService
 
     private void OnXInputConnectionChanged(object? sender, DeviceConnectionChangedEventArgs e)
     {
-        // Eğer kablolu bir kol ise doğrudan ilet
-        if (e.Device.ConnectionType == ControllerConnectionType.WiredUsb)
+        lock (_syncLock)
         {
+            int slot = e.Device.PlayerIndex ?? 0;
+
+            if (e.Action == DebounceAction.SessionStarted)
+            {
+                // Eğer bağlı bir BLE cihazı varsa ve bu slot onun Windows XInput yansımasıysa, bastır
+                if (_bleWatcher.ConnectedDevices.Count > _suppressedSlots.Count)
+                {
+                    _suppressedSlots.Add(slot);
+                    return;
+                }
+            }
+            else if (e.Action == DebounceAction.SessionEnded)
+            {
+                if (_suppressedSlots.Remove(slot))
+                {
+                    return;
+                }
+            }
+            else
+            {
+                if (_suppressedSlots.Contains(slot))
+                {
+                    return;
+                }
+            }
+
             ConnectionChanged?.Invoke(this, e);
-            return;
         }
-
-        // Kablosuz XInput: Eğer halihazırda bağlı bir BLE cihazı varsa, bu sinyal onun XInput gölgesidir, mükerrer üretme
-        if (_bleWatcher.ConnectedDevices.Count > 0)
-        {
-            return;
-        }
-
-        ConnectionChanged?.Invoke(this, e);
     }
 
     private void OnXInputBatteryLevelUpdated(object? sender, int batteryPercentage)

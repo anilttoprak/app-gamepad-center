@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -8,9 +9,39 @@ using ControllerHub.Infrastructure.Services;
 
 namespace ControllerHub.App.ViewModels;
 
+public partial class ControllerNicknameItem : ObservableObject
+{
+    public string DeviceKey { get; }
+    public string DefaultName { get; }
+
+    [ObservableProperty]
+    private string _customName = "";
+
+    [ObservableProperty]
+    private string _statusMessage = "";
+
+    public IRelayCommand SaveCommand { get; }
+
+    public ControllerNicknameItem(string deviceKey, string defaultName, string customName, Func<string, string, Task> onSave)
+    {
+        DeviceKey = deviceKey;
+        DefaultName = defaultName;
+        _customName = customName;
+        SaveCommand = new AsyncRelayCommand(async () =>
+        {
+            await onSave(DeviceKey, CustomName);
+            StatusMessage = "✅ Kaydedildi";
+            await Task.Delay(2000);
+            StatusMessage = "";
+        });
+    }
+}
+
 public partial class SettingsViewModel : ViewModelBase
 {
     private ISettingsRepository? _settingsRepository;
+    private ISessionRepository? _sessionRepository;
+    private IControllerMetadataRepository? _metadataRepository;
     private WindowsStartupService? _startupService;
     private bool _isInitializing = false;
 
@@ -34,14 +65,22 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private string _trackedControllerName = "Microsoft Xbox Wireless Controller (Model 1914)";
 
+    public ObservableCollection<ControllerNicknameItem> KnownControllers { get; } = new();
+
+    public event EventHandler? ControllerNicknamesUpdated;
+
     public void Initialize(
         ISettingsRepository settingsRepository,
         WindowsStartupService startupService,
-        string databasePath)
+        string databasePath,
+        ISessionRepository? sessionRepository = null,
+        IControllerMetadataRepository? metadataRepository = null)
     {
         _settingsRepository = settingsRepository;
         _startupService = startupService;
         DatabasePath = databasePath;
+        _sessionRepository = sessionRepository;
+        _metadataRepository = metadataRepository;
 
         _ = LoadSettingsAsync();
     }
@@ -67,10 +106,60 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 StartWithWindows = settings.StartWithWindows;
             }
+
+            // Tanımlı kontrolcüleri ve takma adlarını yükle
+            await LoadKnownControllersAsync();
         }
         finally
         {
             _isInitializing = false;
+        }
+    }
+
+    public async Task LoadKnownControllersAsync()
+    {
+        KnownControllers.Clear();
+
+        var customNames = _metadataRepository != null
+            ? await _metadataRepository.GetAllCustomNamesAsync()
+            : new Dictionary<string, string>();
+
+        var keys = new HashSet<string>(customNames.Keys);
+
+        if (_sessionRepository != null)
+        {
+            var sessions = await _sessionRepository.GetRecentSessionsAsync(500);
+            foreach (var s in sessions)
+            {
+                if (!string.IsNullOrEmpty(s.DeviceKey))
+                {
+                    keys.Add(s.DeviceKey);
+                }
+            }
+        }
+
+        if (keys.Count == 0)
+        {
+            // Varsayılan Xbox kolu anahtarı ekle
+            keys.Add("XBOX_CONTROLLER_DYNAMIC");
+        }
+
+        foreach (var key in keys)
+        {
+            string defaultName = key.StartsWith("XINPUT")
+                ? "USB Kablolu Oyun Kolu"
+                : "Xbox Wireless Controller";
+
+            string currentAlias = customNames.TryGetValue(key, out var alias) ? alias : "";
+
+            KnownControllers.Add(new ControllerNicknameItem(key, defaultName, currentAlias, async (k, name) =>
+            {
+                if (_metadataRepository != null)
+                {
+                    await _metadataRepository.SetCustomNameAsync(k, name);
+                    ControllerNicknamesUpdated?.Invoke(this, EventArgs.Empty);
+                }
+            }));
         }
     }
 

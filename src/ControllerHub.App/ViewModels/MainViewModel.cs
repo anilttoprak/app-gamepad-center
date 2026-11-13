@@ -1,6 +1,8 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ControllerHub.App.Views;
 using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
 using ControllerHub.Core.Services;
@@ -10,12 +12,24 @@ using ControllerHub.Infrastructure.Services;
 
 namespace ControllerHub.App.ViewModels;
 
+public partial class ConnectedDeviceCardViewModel : ObservableObject
+{
+    public string DeviceKey { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string HardwareName { get; set; } = string.Empty;
+    public string ConnectionBadge { get; set; } = "BT";
+    public string BatteryText { get; set; } = "%100";
+    public string Icon { get; set; } = "🎮";
+    public bool IsWired { get; set; }
+}
+
 public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly SqliteDatabaseContext _dbContext;
     private readonly ISessionRepository _sessionRepository;
     private readonly IBatteryRepository _batteryRepository;
     private readonly ISettingsRepository _settingsRepository;
+    private readonly IControllerMetadataRepository _metadataRepository;
     private readonly WindowsStartupService _startupService;
     private readonly IDeviceWatcherService _deviceWatcher;
     private readonly SessionTrackerService _sessionTracker;
@@ -30,6 +44,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public AnalyticsViewModel AnalyticsVM { get; } = new();
     public BatteryViewModel BatteryVM { get; } = new();
     public SettingsViewModel SettingsVM { get; } = new();
+
+    public ObservableCollection<ConnectedDeviceCardViewModel> ConnectedControllers { get; } = new();
+
+    [ObservableProperty]
+    private bool _hasConnectedControllers = false;
+
+    [ObservableProperty]
+    private bool _hasNoConnectedControllers = true;
 
     public bool MinimizeToTray => SettingsVM.MinimizeToTray;
 
@@ -60,6 +82,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _sessionRepository = new SqliteSessionRepository(_dbContext);
         _batteryRepository = new SqliteBatteryRepository(_dbContext);
         _settingsRepository = new SqliteSettingsRepository(_dbContext);
+        _metadataRepository = new SqliteControllerMetadataRepository(_dbContext);
         _startupService = new WindowsStartupService();
 
         // 2. Donanım İzleyici (Hibrit BLE + XInput) ve Oturum Takip Servisi
@@ -82,17 +105,25 @@ public partial class MainViewModel : ObservableObject, IDisposable
         try
         {
             await _sessionTracker.InitializeAsync();
-            DashboardVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
+            DashboardVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker, _metadataRepository);
             DashboardVM.NavigationRequested += async (_, target) => await NavigateAsync(target);
             BatteryVM.Initialize(_batteryRepository, _deviceWatcher, _sessionRepository, _sessionTracker);
             SessionsVM.Initialize(_sessionRepository, _sessionTracker);
             AnalyticsVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
-            SettingsVM.Initialize(_settingsRepository, _startupService, _dbContext.DatabasePath);
+            SettingsVM.Initialize(_settingsRepository, _startupService, _dbContext.DatabasePath, _sessionRepository, _metadataRepository);
+
+            SettingsVM.ControllerNicknamesUpdated += async (_, _) =>
+            {
+                await UpdateConnectedControllersUiAsync();
+                await DashboardVM.RefreshDataAsync();
+                await SessionsVM.RefreshDataAsync();
+            };
 
             await DashboardVM.RefreshDataAsync();
             await BatteryVM.RefreshDataAsync();
             await SessionsVM.RefreshDataAsync();
             await AnalyticsVM.RefreshDataAsync();
+            await UpdateConnectedControllersUiAsync();
 
             HardwareDiagnosticsText = "SQLite (WAL) Hazır | 4s Debounce Aktif";
         }
@@ -100,6 +131,64 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             HardwareDiagnosticsText = $"Başlatma Hatası: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private async Task RenameControllerAsync(ConnectedDeviceCardViewModel? item)
+    {
+        if (item == null) return;
+
+        var dialog = new RenameControllerDialog(item.HardwareName, item.DisplayName);
+        dialog.Owner = Application.Current?.MainWindow;
+        if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.CustomName))
+        {
+            await _metadataRepository.SetCustomNameAsync(item.DeviceKey, dialog.CustomName);
+            await UpdateConnectedControllersUiAsync();
+            await DashboardVM.RefreshDataAsync();
+            await SessionsVM.RefreshDataAsync();
+            await SettingsVM.LoadKnownControllersAsync();
+        }
+    }
+
+    private async Task UpdateConnectedControllersUiAsync()
+    {
+        var connectedList = _deviceWatcher.ConnectedDevices;
+        var customNames = await _metadataRepository.GetAllCustomNamesAsync();
+
+        ConnectedControllers.Clear();
+        foreach (var dev in connectedList)
+        {
+            string displayName = customNames.TryGetValue(dev.DeviceKey, out var alias) && !string.IsNullOrWhiteSpace(alias)
+                ? alias
+                : dev.Name;
+
+            string badge = dev.ConnectionType switch
+            {
+                ControllerConnectionType.WiredUsb => "USB",
+                ControllerConnectionType.WirelessAdapter => "Alıcı",
+                _ => "BT"
+            };
+
+            string battery = dev.ConnectionType == ControllerConnectionType.WiredUsb
+                ? "🔌 Sürekli Güç"
+                : (dev.BatteryLevel.HasValue ? $"🔋 %{dev.BatteryLevel.Value}" : "🔋 Bağlı");
+
+            string icon = dev.ConnectionType == ControllerConnectionType.WiredUsb ? "🔌" : "🎮";
+
+            ConnectedControllers.Add(new ConnectedDeviceCardViewModel
+            {
+                DeviceKey = dev.DeviceKey,
+                DisplayName = displayName,
+                HardwareName = dev.Name,
+                ConnectionBadge = badge,
+                BatteryText = battery,
+                Icon = icon,
+                IsWired = dev.ConnectionType == ControllerConnectionType.WiredUsb
+            });
+        }
+
+        HasConnectedControllers = ConnectedControllers.Count > 0;
+        HasNoConnectedControllers = !HasConnectedControllers;
     }
 
     [RelayCommand]
@@ -163,6 +252,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
 
             HardwareDiagnosticsText = $"Donanım: {connectedList.Count} Cihaz | PnP: {e.State} | Aksiyon: {e.Action} | Saat: {e.TimestampUtc.ToLocalTime():HH:mm:ss}";
+
+            _ = UpdateConnectedControllersUiAsync();
 
             if (e.Device.BatteryLevel.HasValue)
             {

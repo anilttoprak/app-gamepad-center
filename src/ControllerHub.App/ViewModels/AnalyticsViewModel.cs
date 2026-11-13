@@ -94,7 +94,18 @@ public partial class AnalyticsViewModel : ViewModelBase
         ThisMonthTotal = SessionTimeCalculator.FormatDurationText(report.ThisMonthTotal);
         ThisYearTotal = SessionTimeCalculator.FormatDurationText(report.ThisYearTotal);
 
-        BatteryChangeCount = $"{report.TotalBatteryChangesCount} kez";
+        if (report.TotalBatteryChangesCount > 0)
+        {
+            BatteryChangeCount = $"{report.TotalBatteryChangesCount} kez";
+        }
+        else if (batteryChanges.Any(c => c.ChangeType == "İlk Kurulum (Fabrika Çıkışı)"))
+        {
+            BatteryChangeCount = "0 kez (İlk pil kullanımda)";
+        }
+        else
+        {
+            BatteryChangeCount = "0 kez";
+        }
 
         if (report.EstimatedHoursPerBatterySet.HasValue)
         {
@@ -102,7 +113,7 @@ public partial class AnalyticsViewModel : ViewModelBase
         }
         else
         {
-            EstimatedHoursPerBatterySet = "Değişim kaydı yok";
+            EstimatedHoursPerBatterySet = "Veri yetersiz (En az 1 değişim gerekli)";
         }
     }
 
