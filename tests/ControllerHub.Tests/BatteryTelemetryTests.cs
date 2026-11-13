@@ -185,6 +185,8 @@ public class BatteryTelemetryTests : IDisposable
             State = DeviceConnectionState.Connected
         };
 
+        public IReadOnlyList<DeviceInfo> ConnectedDevices => new[] { CurrentDevice };
+
         public bool IsRunning => true;
         public Task StartAsync(System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task StopAsync() => Task.CompletedTask;

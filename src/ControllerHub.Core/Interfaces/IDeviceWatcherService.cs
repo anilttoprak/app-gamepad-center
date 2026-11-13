@@ -29,6 +29,7 @@ public interface IDeviceWatcherService : IDisposable
     event EventHandler<int>? BatteryLevelUpdated;
 
     DeviceInfo CurrentDevice { get; }
+    IReadOnlyList<DeviceInfo> ConnectedDevices { get; }
     bool IsRunning { get; }
 
     Task StartAsync(CancellationToken cancellationToken = default);

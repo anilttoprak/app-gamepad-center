@@ -231,6 +231,7 @@ public class BatteryManagementTests : IDisposable
         public event EventHandler<int>? BatteryLevelUpdated { add { } remove { } }
 
         public DeviceInfo CurrentDevice { get; } = new() { DeviceKey = "XBOX_TEST", Name = "Xbox Controller" };
+        public IReadOnlyList<DeviceInfo> ConnectedDevices => new[] { CurrentDevice };
         public bool IsRunning => false;
 
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

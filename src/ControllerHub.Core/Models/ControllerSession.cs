@@ -4,6 +4,7 @@ public class ControllerSession
 {
     public long Id { get; set; }
     public string DeviceKey { get; set; } = string.Empty;
+    public string DeviceName { get; set; } = "Oyun Kolu";
     public DateTimeOffset StartedAtUtc { get; set; }
     public DateTimeOffset? EndedAtUtc { get; set; }
     public int DurationSeconds { get; set; }

@@ -145,32 +145,33 @@ public partial class DashboardViewModel : ViewModelBase
 
         var nowUtc = DateTimeOffset.UtcNow;
         var activeSession = _sessionTracker?.ActiveSession;
+        var activeSessions = _sessionTracker?.ActiveSessions ?? (activeSession != null && activeSession.IsActive ? new[] { activeSession } : (IReadOnlyList<ControllerSession>)Array.Empty<ControllerSession>());
 
         // 1. Veritabanından tüm oturumları getir (Analiz ve KPI'lar için)
         var sessions = await _sessionRepository.GetRecentSessionsAsync(1000);
         _cachedSessions = sessions.ToList();
 
         // 2. Toplam Süre & Bugünkü Süre (SessionTimeCalculator ile kesin matematiksel hesap)
-        var totalDuration = SessionTimeCalculator.CalculateTotalDuration(_cachedSessions, activeSession, nowUtc);
+        var totalDuration = SessionTimeCalculator.CalculateTotalDurationMulti(_cachedSessions, activeSessions, nowUtc);
         TotalConnectionTime = SessionTimeCalculator.FormatDurationText(totalDuration);
 
         var todayLocal = DateOnly.FromDateTime(DateTime.Now);
-        var todayDuration = SessionTimeCalculator.CalculateDayDuration(_cachedSessions, activeSession, todayLocal, TimeZoneInfo.Local, nowUtc);
+        var todayDuration = SessionTimeCalculator.CalculateDayDurationMulti(_cachedSessions, activeSessions, todayLocal, TimeZoneInfo.Local, nowUtc);
         TodayConnectionTime = SessionTimeCalculator.FormatDurationText(todayDuration);
 
-        // 3. Toplam Oturum Sayısı (Yalnızca tamamlanmış oturumlar + varsa 1 aktif oturum)
+        // 3. Toplam Oturum Sayısı (Yalnızca tamamlanmış oturumlar + aktif oturum sayısı)
         int completedCount = _cachedSessions.Count(s => s.EndedAtUtc.HasValue);
-        int totalCount = completedCount + (activeSession != null && activeSession.IsActive ? 1 : 0);
+        int totalCount = completedCount + activeSessions.Count;
         TotalSessionsCount = totalCount.ToString();
 
         HasSessions = totalCount > 0;
         IsEmptyState = !HasSessions;
 
         // 4. Son 7 Günlük Kullanım Grafiğini Gerçek Veriden Üret
-        GenerateWeeklyActivity(todayLocal, nowUtc, activeSession);
+        GenerateWeeklyActivity(todayLocal, nowUtc, activeSessions);
 
         // 5. Son Oturumlar Tablosunu Gerçek Veriden Doldur
-        PopulateRecentSessions(activeSession);
+        PopulateRecentSessions(activeSessions);
 
         // 6. Son Bilinen Pil Seviyesini Getir
         if (_batteryRepository != null)
@@ -192,7 +193,7 @@ public partial class DashboardViewModel : ViewModelBase
         }
     }
 
-    private void GenerateWeeklyActivity(DateOnly todayLocal, DateTimeOffset nowUtc, ControllerSession? activeSession)
+    private void GenerateWeeklyActivity(DateOnly todayLocal, DateTimeOffset nowUtc, IReadOnlyList<ControllerSession> activeSessions)
     {
         WeeklyActivity.Clear();
 
@@ -203,7 +204,7 @@ public partial class DashboardViewModel : ViewModelBase
         for (int i = 6; i >= 0; i--)
         {
             var date = todayLocal.AddDays(-i);
-            var dayDuration = SessionTimeCalculator.CalculateDayDuration(_cachedSessions, activeSession, date, TimeZoneInfo.Local, nowUtc);
+            var dayDuration = SessionTimeCalculator.CalculateDayDurationMulti(_cachedSessions, activeSessions, date, TimeZoneInfo.Local, nowUtc);
             var hours = dayDuration.TotalHours;
 
             if (hours > maxDayHours)
@@ -221,23 +222,31 @@ public partial class DashboardViewModel : ViewModelBase
         }
     }
 
-    private void PopulateRecentSessions(ControllerSession? activeSession)
+    private void PopulateRecentSessions(IReadOnlyList<ControllerSession> activeSessions)
     {
         RecentSessions.Clear();
 
-        if (activeSession != null && activeSession.IsActive)
+        foreach (var act in activeSessions)
         {
-            var activeDuration = activeSession.GetEffectiveDuration(DateTimeOffset.UtcNow);
-            RecentSessions.Add(new RecentSessionItem(
-                Date: "Bugün",
-                TimeRange: $"{activeSession.StartedAtUtc.ToLocalTime():HH:mm} - Devam Ediyor",
-                Duration: SessionTimeCalculator.FormatDurationText(activeDuration),
-                Reason: "Aktif Oturum",
-                IsActive: true));
+            if (act != null && act.IsActive)
+            {
+                var activeDuration = act.GetEffectiveDuration(DateTimeOffset.UtcNow);
+                var deviceLabel = act.DeviceKey.Contains("XINPUT")
+                    ? "Aktif Kol (Kablolu/USB)"
+                    : (activeSessions.Count > 1 ? $"Aktif Kol ({act.DeviceName})" : "Aktif Oturum");
+
+                RecentSessions.Add(new RecentSessionItem(
+                    Date: "Bugün",
+                    TimeRange: $"{act.StartedAtUtc.ToLocalTime():HH:mm} - Devam Ediyor",
+                    Duration: SessionTimeCalculator.FormatDurationText(activeDuration),
+                    Reason: deviceLabel,
+                    IsActive: true));
+            }
         }
 
         var completedSessions = _cachedSessions.Where(s => s.EndedAtUtc.HasValue).ToList();
-        foreach (var s in completedSessions.Take(activeSession != null && activeSession.IsActive ? 4 : 5))
+        int remainingSlots = Math.Max(1, 5 - RecentSessions.Count);
+        foreach (var s in completedSessions.Take(remainingSlots))
         {
             var startLocal = s.StartedAtUtc.ToLocalTime();
             var endLocal = s.EndedAtUtc!.Value.ToLocalTime();
@@ -270,21 +279,33 @@ public partial class DashboardViewModel : ViewModelBase
         System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
         {
             var nowUtc = DateTimeOffset.UtcNow;
+            var activeSessions = _sessionTracker?.ActiveSessions;
             var activeSession = _sessionTracker?.ActiveSession;
 
             // Toplam ve bugünkü süreyi canlı sayaçla anlık ilerlet
-            var total = SessionTimeCalculator.CalculateTotalDuration(_cachedSessions, activeSession, nowUtc);
+            var total = SessionTimeCalculator.CalculateTotalDurationMulti(_cachedSessions, activeSessions, nowUtc);
             TotalConnectionTime = SessionTimeCalculator.FormatDurationText(total);
 
             var todayLocal = DateOnly.FromDateTime(DateTime.Now);
-            var today = SessionTimeCalculator.CalculateDayDuration(_cachedSessions, activeSession, todayLocal, TimeZoneInfo.Local, nowUtc);
+            var today = SessionTimeCalculator.CalculateDayDurationMulti(_cachedSessions, activeSessions, todayLocal, TimeZoneInfo.Local, nowUtc);
             TodayConnectionTime = SessionTimeCalculator.FormatDurationText(today);
 
-            // Tablodaki ilk eleman aktif oturum ise süresini güncelle
-            if (RecentSessions.Count > 0 && RecentSessions[0].IsActive)
+            // Tablodaki aktif elemanların süresini güncelle
+            if (activeSessions != null && activeSessions.Count > 0)
             {
-                var first = RecentSessions[0];
-                RecentSessions[0] = first with { Duration = SessionTimeCalculator.FormatDurationText(activeDuration) };
+                for (int i = 0; i < RecentSessions.Count; i++)
+                {
+                    if (!RecentSessions[i].IsActive) break;
+                    if (i < activeSessions.Count)
+                    {
+                        var actDur = activeSessions[i].GetEffectiveDuration(nowUtc);
+                        RecentSessions[i] = RecentSessions[i] with { Duration = SessionTimeCalculator.FormatDurationText(actDur) };
+                    }
+                }
+            }
+            else if (RecentSessions.Count > 0 && RecentSessions[0].IsActive)
+            {
+                RecentSessions[0] = RecentSessions[0] with { Duration = SessionTimeCalculator.FormatDurationText(activeDuration) };
             }
         });
     }

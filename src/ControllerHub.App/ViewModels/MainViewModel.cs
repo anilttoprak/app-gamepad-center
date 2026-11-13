@@ -62,8 +62,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _settingsRepository = new SqliteSettingsRepository(_dbContext);
         _startupService = new WindowsStartupService();
 
-        // 2. Donanım İzleyici ve Oturum Takip Servisi
-        _deviceWatcher = new WindowsBluetoothDeviceWatcher();
+        // 2. Donanım İzleyici (Hibrit BLE + XInput) ve Oturum Takip Servisi
+        _deviceWatcher = new CompositeDeviceWatcher();
         _sessionTracker = new SessionTrackerService(_deviceWatcher, _sessionRepository, _batteryRepository);
 
         _deviceWatcher.ConnectionChanged += OnDeviceConnectionChanged;
@@ -126,35 +126,53 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         Application.Current?.Dispatcher?.Invoke(() =>
         {
-            IsDeviceConnected = (e.State == DeviceConnectionState.Connected);
-            ActiveControllerName = e.Device.Name;
+            var connectedList = _deviceWatcher.ConnectedDevices;
+            IsDeviceConnected = connectedList.Count > 0;
 
-            (ConnectionStatusBadge, StatusColorBrush) = e.State switch
+            if (connectedList.Count == 0)
             {
-                DeviceConnectionState.Connected => ("🟢 Bağlı", "#16A36A"),
-                DeviceConnectionState.Connecting => ("🟡 Bağlanıyor...", "#D97706"),
-                DeviceConnectionState.Disconnecting => ("🟠 Doğrulanıyor...", "#D97706"),
-                DeviceConnectionState.Disconnected => ("⚪ Bağlı Değil", "#DC4C64"),
-                _ => ("Bilinmiyor", "#667085")
-            };
-
-            HardwareDiagnosticsText = $"PnP: {e.State} | Aksiyon: {e.Action} | Saat: {e.TimestampUtc.ToLocalTime():HH:mm:ss}";
-
-            DashboardVM.IsConnected = IsDeviceConnected;
-            DashboardVM.ConnectionStateText = IsDeviceConnected ? "🟢 Bağlı (Canlı Süre İşliyor)" : "⚪ Bağlı Değil";
-
-            if (e.State == DeviceConnectionState.Connected)
-            {
-                TrayStatusUpdated?.Invoke(this, "🟢 Bağlı");
-            }
-            else if (e.State == DeviceConnectionState.Disconnected)
-            {
+                ActiveControllerName = "Bağlı Kontrolcü Yok";
+                ConnectionStatusBadge = "⚪ Bağlı Değil";
+                StatusColorBrush = "#DC4C64";
+                DashboardVM.IsConnected = false;
+                DashboardVM.ConnectionStateText = "⚪ Bağlı Değil";
                 TrayStatusUpdated?.Invoke(this, "⚪ Bağlı Değil");
             }
+            else if (connectedList.Count == 1)
+            {
+                var dev = connectedList[0];
+                ActiveControllerName = dev.Name;
+                var connTypeStr = dev.ConnectionType == ControllerConnectionType.WiredUsb ? "Kablolu" : "BT";
+                ConnectionStatusBadge = $"🟢 Bağlı ({connTypeStr})";
+                StatusColorBrush = "#16A36A";
+                DashboardVM.IsConnected = true;
+                DashboardVM.ConnectionStateText = $"🟢 Bağlı ({dev.Name})";
+                DashboardVM.ActiveControllerName = dev.Name;
+                TrayStatusUpdated?.Invoke(this, $"🟢 {dev.Name}");
+            }
+            else
+            {
+                // Çoklu kontrolcü bağlı
+                ActiveControllerName = $"{connectedList.Count} Kontrolcü Bağlı";
+                ConnectionStatusBadge = $"🟢 {connectedList.Count} Kol Aktif";
+                StatusColorBrush = "#16A36A";
+                DashboardVM.IsConnected = true;
+                DashboardVM.ConnectionStateText = $"🟢 {connectedList.Count} Kol Bağlı ({string.Join(" + ", connectedList.Select(c => c.Name.Split(' ')[0]))})";
+                DashboardVM.ActiveControllerName = $"{connectedList.Count} Kontrolcü Bağlı";
+                TrayStatusUpdated?.Invoke(this, $"🟢 {connectedList.Count} Kol Aktif");
+            }
+
+            HardwareDiagnosticsText = $"Donanım: {connectedList.Count} Cihaz | PnP: {e.State} | Aksiyon: {e.Action} | Saat: {e.TimestampUtc.ToLocalTime():HH:mm:ss}";
 
             if (e.Device.BatteryLevel.HasValue)
             {
                 ApplyBatteryLevel(e.Device.BatteryLevel.Value);
+            }
+            else if (e.Device.ConnectionType == ControllerConnectionType.WiredUsb)
+            {
+                DashboardVM.BatteryLevelText = "🔌";
+                DashboardVM.BatterySourceText = "USB Sürekli Güç (Kablolu)";
+                DashboardVM.BatteryConfidenceBadge = "Kablolu Bağlantı";
             }
         });
     }

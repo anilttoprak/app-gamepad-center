@@ -30,3 +30,11 @@ public enum BatteryConfidence
     Coarse,
     Unknown
 }
+
+public enum ControllerConnectionType
+{
+    Bluetooth,
+    WiredUsb,
+    WirelessAdapter,
+    Unknown
+}

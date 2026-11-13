@@ -10,8 +10,7 @@ public class SessionTrackerService : IDisposable
     private readonly ISessionRepository _sessionRepository;
     private readonly IBatteryRepository _batteryRepository;
     private readonly object _syncLock = new();
-
-    private ControllerSession? _activeSession;
+    private readonly Dictionary<string, ControllerSession> _activeSessions = new();
     private CancellationTokenSource? _tickerCts;
     private bool _disposed;
 
@@ -23,7 +22,15 @@ public class SessionTrackerService : IDisposable
     {
         get
         {
-            lock (_syncLock) return _activeSession;
+            lock (_syncLock) return _activeSessions.Values.FirstOrDefault();
+        }
+    }
+
+    public IReadOnlyList<ControllerSession> ActiveSessions
+    {
+        get
+        {
+            lock (_syncLock) return _activeSessions.Values.ToList();
         }
     }
 
@@ -57,9 +64,10 @@ public class SessionTrackerService : IDisposable
             if (e.Action == DebounceAction.SessionStarted)
             {
                 var session = await _sessionRepository.StartSessionAsync(e.Device.DeviceKey, e.TimestampUtc);
+                session.DeviceName = e.Device.DeviceName;
                 lock (_syncLock)
                 {
-                    _activeSession = session;
+                    _activeSessions[e.Device.DeviceKey] = session;
                 }
 
                 StartLiveTicker();
@@ -67,13 +75,18 @@ public class SessionTrackerService : IDisposable
             }
             else if (e.Action == DebounceAction.SessionEnded)
             {
-                StopLiveTicker();
-
                 ControllerSession? endedSession = null;
                 lock (_syncLock)
                 {
-                    endedSession = _activeSession;
-                    _activeSession = null;
+                    if (_activeSessions.Remove(e.Device.DeviceKey, out var s))
+                    {
+                        endedSession = s;
+                    }
+
+                    if (_activeSessions.Count == 0)
+                    {
+                        StopLiveTicker();
+                    }
                 }
 
                 if (endedSession != null)
@@ -126,7 +139,7 @@ public class SessionTrackerService : IDisposable
                 ControllerSession? current;
                 lock (_syncLock)
                 {
-                    current = _activeSession;
+                    current = _activeSessions.Values.FirstOrDefault();
                 }
 
                 if (current != null && current.IsActive)
@@ -148,20 +161,25 @@ public class SessionTrackerService : IDisposable
     public async Task ShutdownAsync()
     {
         StopLiveTicker();
-        ControllerSession? sessionToClose = null;
+        List<ControllerSession> sessionsToClose;
 
         lock (_syncLock)
         {
-            sessionToClose = _activeSession;
-            _activeSession = null;
+            sessionsToClose = _activeSessions.Values.ToList();
+            _activeSessions.Clear();
         }
 
-        if (sessionToClose != null)
+        var now = DateTimeOffset.UtcNow;
+        foreach (var session in sessionsToClose)
         {
-            await _sessionRepository.EndSessionAsync(
-                sessionToClose.DeviceKey,
-                DateTimeOffset.UtcNow,
-                SessionEndReason.AppExit);
+            try
+            {
+                await _sessionRepository.EndSessionAsync(
+                    session.DeviceKey,
+                    now,
+                    SessionEndReason.AppExit);
+            }
+            catch { }
         }
 
         await _deviceWatcher.StopAsync();

@@ -36,6 +36,39 @@ public static class SessionTimeCalculator
     }
 
     /// <summary>
+    /// Verilen oturum listesinin ve birden fazla aktif oturumun toplam süresini hesaplar.
+    /// </summary>
+    public static TimeSpan CalculateTotalDurationMulti(
+        IEnumerable<ControllerSession> sessions,
+        IEnumerable<ControllerSession>? activeSessions,
+        DateTimeOffset nowUtc)
+    {
+        long totalSeconds = 0;
+
+        foreach (var session in sessions)
+        {
+            if (session.EndedAtUtc.HasValue)
+            {
+                totalSeconds += session.DurationSeconds;
+            }
+        }
+
+        if (activeSessions != null)
+        {
+            foreach (var act in activeSessions)
+            {
+                if (act != null && act.IsActive)
+                {
+                    var activeDuration = act.GetEffectiveDuration(nowUtc);
+                    totalSeconds += (long)activeDuration.TotalSeconds;
+                }
+            }
+        }
+
+        return TimeSpan.FromSeconds(Math.Max(0, totalSeconds));
+    }
+
+    /// <summary>
     /// Belirtilen takvim gününde (yerel saat 00:00 - 23:59:59) gerçekleşen bağlantı süresini hesaplar.
     /// Gece yarısını aşan oturumların yalnızca o güne denk gelen dilimini alır.
     /// </summary>
@@ -68,6 +101,49 @@ public static class SessionTimeCalculator
         {
             var effectiveEndUtc = nowUtc < activeSession.StartedAtUtc ? activeSession.StartedAtUtc : nowUtc;
             totalDaySeconds += GetOverlapSeconds(activeSession.StartedAtUtc, effectiveEndUtc, dayStartUtc, dayEndUtc);
+        }
+
+        return TimeSpan.FromSeconds(Math.Max(0, totalDaySeconds));
+    }
+
+    /// <summary>
+    /// Belirtilen takvim gününde (yerel saat 00:00 - 23:59:59) gerçekleşen bağlantı süresini çoklu aktif oturum desteğiyle hesaplar.
+    /// </summary>
+    public static TimeSpan CalculateDayDurationMulti(
+        IEnumerable<ControllerSession> sessions,
+        IEnumerable<ControllerSession>? activeSessions,
+        DateOnly targetDate,
+        TimeZoneInfo localTimeZone,
+        DateTimeOffset nowUtc)
+    {
+        // Hedef günün yerel başlangıç ve bitişini belirle (00:00:00 ile ertesi gün 00:00:00 arası tam 24 saat)
+        var dayStartLocal = targetDate.ToDateTime(TimeOnly.MinValue);
+        var dayEndLocal = dayStartLocal.AddDays(1);
+
+        var dayStartUtc = new DateTimeOffset(dayStartLocal, localTimeZone.GetUtcOffset(dayStartLocal)).ToUniversalTime();
+        var dayEndUtc = new DateTimeOffset(dayEndLocal, localTimeZone.GetUtcOffset(dayEndLocal)).ToUniversalTime();
+
+        double totalDaySeconds = 0;
+
+        // 1. Kapanmış oturumların o güne düşen payını hesapla
+        foreach (var s in sessions)
+        {
+            if (!s.EndedAtUtc.HasValue) continue;
+
+            totalDaySeconds += GetOverlapSeconds(s.StartedAtUtc, s.EndedAtUtc.Value, dayStartUtc, dayEndUtc);
+        }
+
+        // 2. Varsa aktif oturumların o güne düşen payını hesapla
+        if (activeSessions != null)
+        {
+            foreach (var act in activeSessions)
+            {
+                if (act != null && act.IsActive)
+                {
+                    var effectiveEndUtc = nowUtc < act.StartedAtUtc ? act.StartedAtUtc : nowUtc;
+                    totalDaySeconds += GetOverlapSeconds(act.StartedAtUtc, effectiveEndUtc, dayStartUtc, dayEndUtc);
+                }
+            }
         }
 
         return TimeSpan.FromSeconds(Math.Max(0, totalDaySeconds));

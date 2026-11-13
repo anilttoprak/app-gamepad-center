@@ -27,6 +27,16 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
     public event EventHandler<int>? BatteryLevelUpdated;
 
     public DeviceInfo CurrentDevice => _currentDevice;
+    public IReadOnlyList<DeviceInfo> ConnectedDevices
+    {
+        get
+        {
+            lock (_syncLock)
+            {
+                return _currentDevice.IsConnected ? new List<DeviceInfo> { _currentDevice } : Array.Empty<DeviceInfo>();
+            }
+        }
+    }
     public bool IsRunning { get; private set; }
 
     public WindowsBluetoothDeviceWatcher()
@@ -37,7 +47,8 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         {
             DeviceKey = "XBOX_CONTROLLER_DYNAMIC",
             Name = "Xbox Wireless Controller",
-            State = DeviceConnectionState.Disconnected
+            State = DeviceConnectionState.Disconnected,
+            ConnectionType = ControllerConnectionType.Bluetooth
         };
     }
 
@@ -321,11 +332,19 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
         }
     }
 
-    private static bool IsXboxControllerName(string? name)
+    public static bool IsSupportedControllerName(string? name) => IsXboxControllerName(name);
+
+    public static bool IsXboxControllerName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
         return name.Contains("Xbox", StringComparison.OrdinalIgnoreCase) ||
-               name.Contains("Wireless Controller", StringComparison.OrdinalIgnoreCase);
+               name.Contains("Wireless Controller", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("DualSense", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("DualShock", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("Pro Controller", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("8BitDo", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("Gamepad", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("Controller", StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()

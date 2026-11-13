@@ -26,8 +26,24 @@ public class DeviceInfo
 {
     public string DeviceKey { get; set; } = string.Empty;
     public string Name { get; set; } = "Xbox Wireless Controller";
+    public string DeviceName
+    {
+        get => Name;
+        set => Name = value;
+    }
     public DeviceConnectionState State { get; set; } = DeviceConnectionState.Disconnected;
     public int? BatteryLevel { get; set; }
     public DateTimeOffset? BatteryLastUpdatedAt { get; set; }
+    public ControllerConnectionType ConnectionType { get; set; } = ControllerConnectionType.Bluetooth;
+    public int? PlayerIndex { get; set; }
+
+    public string ConnectionTypeDescription => ConnectionType switch
+    {
+        ControllerConnectionType.Bluetooth => "Bluetooth",
+        ControllerConnectionType.WiredUsb => "USB Kablolu",
+        ControllerConnectionType.WirelessAdapter => "Kablosuz Alıcı",
+        _ => "Bilinmiyor"
+    };
+
     public bool IsConnected => State == DeviceConnectionState.Connected;
 }

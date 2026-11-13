@@ -146,6 +146,8 @@ public class SettingsAndLifecycleTests : IDisposable
             State = DeviceConnectionState.Disconnected
         };
 
+        public IReadOnlyList<DeviceInfo> ConnectedDevices => new[] { CurrentDevice };
+
         public bool IsRunning => true;
         public Task StartAsync(System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task StopAsync() => Task.CompletedTask;

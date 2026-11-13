@@ -62,7 +62,23 @@ public partial class SessionsViewModel : ViewModelBase
     {
         System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
         {
-            if (Sessions.Count > 0 && Sessions[0].IsActive)
+            var activeList = _sessionTracker?.ActiveSessions;
+            if (activeList != null && activeList.Count > 0)
+            {
+                var nowUtc = DateTimeOffset.UtcNow;
+                for (int i = 0; i < Sessions.Count; i++)
+                {
+                    if (!Sessions[i].IsActive) break;
+                    var item = Sessions[i];
+                    var matched = activeList.FirstOrDefault(a => a.Id == item.Id) ?? (i < activeList.Count ? activeList[i] : null);
+                    if (matched != null)
+                    {
+                        var dur = matched.GetEffectiveDuration(nowUtc);
+                        Sessions[i] = item with { Duration = SessionTimeCalculator.FormatDurationText(dur) };
+                    }
+                }
+            }
+            else if (Sessions.Count > 0 && Sessions[0].IsActive)
             {
                 var first = Sessions[0];
                 Sessions[0] = first with { Duration = SessionTimeCalculator.FormatDurationText(activeDuration) };
@@ -97,6 +113,7 @@ public partial class SessionsViewModel : ViewModelBase
         var startOfMonth = new DateTime(today.Year, today.Month, 1);
 
         var active = _sessionTracker?.ActiveSession;
+        var activeList = _sessionTracker?.ActiveSessions ?? (active != null && active.IsActive ? new[] { active } : (IReadOnlyList<ControllerSession>)Array.Empty<ControllerSession>());
 
         // Filtreye göre tamamlanmış oturumları seç (Aktif oturum s.EndedAtUtc == null olduğu için geçmiş listesine girmez)
         var filtered = _allSessions.Where(s =>
@@ -113,10 +130,12 @@ public partial class SessionsViewModel : ViewModelBase
             };
         }).ToList();
 
-        // Varsa aktif oturumu filtreye uyuyorsa en üste ekle
-        if (active != null && active.IsActive)
+        // Varsa aktif oturumları filtreye uyuyorsa en üste ekle
+        foreach (var act in activeList)
         {
-            var activeDate = active.StartedAtUtc.ToLocalTime().Date;
+            if (act == null || !act.IsActive) continue;
+
+            var activeDate = act.StartedAtUtc.ToLocalTime().Date;
             bool includeActive = filter switch
             {
                 "Bugün" => activeDate == today,
@@ -127,14 +146,18 @@ public partial class SessionsViewModel : ViewModelBase
 
             if (includeActive)
             {
-                var duration = active.GetEffectiveDuration(DateTimeOffset.UtcNow);
+                var duration = act.GetEffectiveDuration(DateTimeOffset.UtcNow);
+                var deviceLabel = act.DeviceKey.Contains("XINPUT")
+                    ? "Aktif Kol (Kablolu / USB)"
+                    : (activeList.Count > 1 ? $"Aktif Kol ({act.DeviceName})" : "Aktif Oturum");
+
                 Sessions.Add(new SessionDisplayItem(
-                    Id: active.Id,
+                    Id: act.Id,
                     Date: "Bugün",
-                    StartTime: active.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss"),
+                    StartTime: act.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss"),
                     EndTime: "Devam Ediyor",
                     Duration: SessionTimeCalculator.FormatDurationText(duration),
-                    EndReason: "Aktif Oturum",
+                    EndReason: deviceLabel,
                     Status: "🟢 Devam Ediyor",
                     IsActive: true));
             }
