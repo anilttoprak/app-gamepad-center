@@ -14,6 +14,7 @@ namespace ControllerHub.App.ViewModels;
 
 public record BatteryChangeDisplayItem(
     long Id,
+    int RowNumber,
     string Date,
     string PreviousLevelText,
     string NewLevelText,
@@ -246,6 +247,7 @@ public partial class BatteryViewModel : ViewModelBase
         var cycleMap = performance.Cycles.Where(c => c.ChangeId.HasValue).ToDictionary(c => c.ChangeId!.Value);
 
         ChangeHistory.Clear();
+        int rowNumber = 1;
 
         foreach (var c in changes)
         {
@@ -269,6 +271,7 @@ public partial class BatteryViewModel : ViewModelBase
 
             ChangeHistory.Add(new BatteryChangeDisplayItem(
                 c.Id,
+                rowNumber++,
                 dateText,
                 prevText,
                 newText,

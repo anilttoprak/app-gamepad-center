@@ -10,33 +10,28 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <StackPanel Margin="28,24,28,32">
 
-            <!-- Başlık ve Kontrolcü Bilgisi / Filtresi -->
-            <Grid Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+            <!-- Başlık ve Kontrolcü Bilgisi / Filtresi (Responsive WrapPanel) -->
+            <WrapPanel Margin="0,0,0,20" Orientation="Horizontal">
+                <StackPanel Margin="0,0,24,12" VerticalAlignment="Center">
                     <TextBlock Text="Genel Bakış" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
                     <TextBlock Text="Oyun kolunuzun gerçek zamanlı bağlantı süreleri ve pil kullanım özeti." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
                 </StackPanel>
 
                 <!-- Kontrolcü Bazında Filtreleme Açılır Kutusu (Çoklu Kol Analizi) -->
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <StackPanel VerticalAlignment="Center" Margin="0,0,0,12">
                     <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,5"/>
                     <ComboBox Style="{StaticResource FluentComboBoxStyle}"
                               ItemsSource="{Binding ControllerFilterOptions}"
                               SelectedItem="{Binding SelectedControllerFilter}"
                               DisplayMemberPath="DisplayName"
-                              MinWidth="260" Height="40" Padding="12,8"
+                              MinWidth="240" Height="40" Padding="12,8"
                               FontSize="13" FontWeight="Medium"
                               Cursor="Hand"/>
                 </StackPanel>
-            </Grid>
+            </WrapPanel>
 
             <!-- Geri Bildirim Banner'ı (Örn: CSV Dışa Aktarıldı) -->
             <Border Background="#ECFDF3" BorderBrush="#ABEFC6" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,16"

@@ -13,6 +13,7 @@ namespace ControllerHub.App.ViewModels;
 
 public record SessionDisplayItem(
     long Id,
+    int RowNumber,
     string Date,
     string StartTime,
     string EndTime,
@@ -175,6 +176,8 @@ public partial class SessionsViewModel : ViewModelBase
             };
         }).ToList();
 
+        int rowNumber = 1;
+
         // Varsa aktif oturumları filtreye uyuyorsa en üste ekle
         foreach (var act in activeList)
         {
@@ -199,6 +202,7 @@ public partial class SessionsViewModel : ViewModelBase
 
                 Sessions.Add(new SessionDisplayItem(
                     Id: act.Id,
+                    RowNumber: rowNumber++,
                     Date: "Bugün",
                     StartTime: act.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss"),
                     EndTime: "Devam Ediyor",
@@ -231,6 +235,7 @@ public partial class SessionsViewModel : ViewModelBase
 
             Sessions.Add(new SessionDisplayItem(
                 Id: s.Id,
+                RowNumber: rowNumber++,
                 Date: dateStr,
                 StartTime: startLocal.ToString("HH:mm:ss"),
                 EndTime: endStr,

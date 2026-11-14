@@ -5,7 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="1000">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <StackPanel Margin="28,24,28,32">
 
             <Grid Margin="0,0,0,20">
@@ -68,8 +68,8 @@
                                         </Border>
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
-                                            <TextBlock Text="{Binding DefaultName}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
-                                            <TextBlock Text="{Binding DeviceKey}" FontSize="10.5" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                                            <TextBlock Text="{Binding DefaultName}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding DeviceKey}" FontSize="10.5" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">

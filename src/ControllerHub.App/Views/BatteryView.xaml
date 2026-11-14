@@ -10,7 +10,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <StackPanel Margin="28,24,28,32">
 
             <!-- Bildirim / Geri Bildirim Banner'ı -->
@@ -46,34 +46,30 @@
                 </Grid>
             </Border>
 
-            <Grid Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0">
+            <!-- Başlık ve Filtreler (Responsive WrapPanel) -->
+            <WrapPanel Margin="0,0,0,20" Orientation="Horizontal">
+                <StackPanel Margin="0,0,24,12" VerticalAlignment="Center">
                     <TextBlock Text="Pil Yönetimi" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
                     <TextBlock Text="Bluetooth donanımsal pil durumu, telemetri hassasiyeti ve pil seti değişim kayıtları." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                     <!-- Kontrolcü Filtresi -->
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,6">
                         <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,4"/>
                         <ComboBox Style="{StaticResource FluentComboBoxStyle}"
                                   ItemsSource="{Binding ControllerFilterOptions}"
                                   SelectedItem="{Binding SelectedControllerFilter}"
                                   DisplayMemberPath="DisplayName"
-                                  MinWidth="240" Height="38" Padding="10,6"
+                                  MinWidth="220" Height="38" Padding="10,6"
                                   FontSize="13" FontWeight="Medium"
                                   Cursor="Hand"/>
                     </StackPanel>
 
                     <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" 
-                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,18,0,0"/>
-                </StackPanel>
-            </Grid>
+                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,18,0,6"/>
+                </WrapPanel>
+            </WrapPanel>
 
             <!-- Üst Blok: Mevcut Durum ve Pil Değişimi Formu (Responsive 2 Sütun) -->
             <Grid Margin="0,0,0,24">
@@ -235,7 +231,7 @@
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="45"/>
+                            <DataGridTextColumn Header="#" Binding="{Binding RowNumber}" Width="45"/>
                             <DataGridTextColumn Header="Değişim Tarihi" Binding="{Binding Date}" Width="135"/>
                             <DataGridTextColumn Header="Eski" Binding="{Binding PreviousLevelText}" Width="65"/>
                             <DataGridTextColumn Header="Yeni" Binding="{Binding NewLevelText}" Width="65"/>

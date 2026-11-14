@@ -10,7 +10,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <StackPanel Margin="28,24,28,32">
 
             <!-- Bildirim / Geri Bildirim Banner'ı -->
@@ -19,38 +19,33 @@
                 <TextBlock Text="{Binding StatusFeedback}" FontWeight="Medium" Foreground="#067647" FontSize="13"/>
             </Border>
 
-            <!-- Başlık ve Filtreler -->
-            <Grid Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0">
+            <!-- Başlık ve Filtreler (Responsive WrapPanel) -->
+            <WrapPanel Margin="0,0,0,20" Orientation="Horizontal">
+                <StackPanel Margin="0,0,24,12" VerticalAlignment="Center">
                     <TextBlock Text="Oturum Geçmişi" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
                     <TextBlock Text="Kontrolcünün bilgisayara bağlandığı tüm oturumların kronolojik kaydı." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                     <!-- Kontrolcü Filtresi -->
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,6">
                         <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,4"/>
                         <ComboBox Style="{StaticResource FluentComboBoxStyle}"
                                   ItemsSource="{Binding ControllerFilterOptions}"
                                   SelectedItem="{Binding SelectedControllerFilter}"
                                   DisplayMemberPath="DisplayName"
-                                  MinWidth="240" Height="38" Padding="10,6"
+                                  MinWidth="220" Height="38" Padding="10,6"
                                   FontSize="13" FontWeight="Medium"
                                   Cursor="Hand"/>
                     </StackPanel>
 
                     <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" 
-                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,18,10,0"/>
+                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,18,10,6"/>
 
                     <Button Content="🗑️  Geçmişi Temizle" Style="{StaticResource DangerButtonStyle}" 
-                            Command="{Binding ClearSessionsCommand}" Height="38" Margin="0,18,0,0"/>
-                </StackPanel>
-            </Grid>
+                            Command="{Binding ClearSessionsCommand}" Height="38" Margin="0,18,0,6"/>
+                </WrapPanel>
+            </WrapPanel>
 
             <!-- Filtre Sekmeleri (FR-06) -->
             <Border Style="{StaticResource CardBorderStyle}" Padding="12,10" Margin="0,0,0,18">
@@ -111,14 +106,14 @@
                         </Style>
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="50"/>
-                        <DataGridTextColumn Header="Tarih" Binding="{Binding Date}" Width="130"/>
-                        <DataGridTextColumn Header="Başlangıç" Binding="{Binding StartTime}" Width="100"/>
-                        <DataGridTextColumn Header="Bitiş" Binding="{Binding EndTime}" Width="110"/>
-                        <DataGridTextColumn Header="Bağlantı Süresi" Binding="{Binding Duration}" Width="120"/>
-                        <DataGridTextColumn Header="Bitiş Sebebi" Binding="{Binding EndReason}" Width="170"/>
-                        <DataGridTextColumn Header="Durum" Binding="{Binding Status}" Width="*"/>
-                        <DataGridTemplateColumn Header="İşlem" Width="60">
+                        <DataGridTextColumn Header="#" Binding="{Binding RowNumber}" Width="45"/>
+                        <DataGridTextColumn Header="Tarih" Binding="{Binding Date}" Width="105"/>
+                        <DataGridTextColumn Header="Başlangıç" Binding="{Binding StartTime}" Width="85"/>
+                        <DataGridTextColumn Header="Bitiş" Binding="{Binding EndTime}" Width="95"/>
+                        <DataGridTextColumn Header="Bağlantı Süresi" Binding="{Binding Duration}" Width="110"/>
+                        <DataGridTextColumn Header="Bitiş Sebebi" Binding="{Binding EndReason}" Width="*" MinWidth="140"/>
+                        <DataGridTextColumn Header="Durum" Binding="{Binding Status}" Width="105"/>
+                        <DataGridTemplateColumn Header="İşlem" Width="55">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Content="🗑️" ToolTip="Bu oturumu sil"
