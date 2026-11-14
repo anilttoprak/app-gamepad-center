@@ -82,6 +82,20 @@
 
                     <RadioButton Content="⚙️  Ayarlar" Style="{StaticResource NavButtonStyle}"
                                  Command="{Binding NavigateCommand}" CommandParameter="Settings"/>
+
+                    <Separator Background="{StaticResource BrushBorderLight}" Margin="4,16,4,14"/>
+
+                    <!-- Global Görüntülenen Kontrolcü Seçici -->
+                    <StackPanel Margin="2,0,2,0">
+                        <TextBlock Text="GÖRÜNTÜLENEN KONTROLCÜ" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushTextMuted}" Margin="2,0,0,6"/>
+                        <ComboBox Style="{StaticResource FluentComboBoxStyle}"
+                                  ItemsSource="{Binding ControllerFilterOptions}"
+                                  SelectedItem="{Binding SelectedControllerFilter}"
+                                  DisplayMemberPath="DisplayName"
+                                  Height="38" Padding="10,6"
+                                  FontSize="12" FontWeight="Medium"
+                                  Cursor="Hand"/>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- 3. Alt Cihaz Durum Paneli (Bağlı Kontrolcüler ve Tanılama) -->

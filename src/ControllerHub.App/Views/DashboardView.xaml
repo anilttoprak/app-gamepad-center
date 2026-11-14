@@ -13,25 +13,11 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="28,24,28,32">
 
-            <!-- Başlık ve Kontrolcü Bilgisi / Filtresi (Responsive WrapPanel) -->
-            <WrapPanel Margin="0,0,0,20" Orientation="Horizontal">
-                <StackPanel Margin="0,0,24,12" VerticalAlignment="Center">
-                    <TextBlock Text="Genel Bakış" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
-                    <TextBlock Text="Oyun kolunuzun gerçek zamanlı bağlantı süreleri ve pil kullanım özeti." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
-                </StackPanel>
-
-                <!-- Kontrolcü Bazında Filtreleme Açılır Kutusu (Çoklu Kol Analizi) -->
-                <StackPanel VerticalAlignment="Center" Margin="0,0,0,12">
-                    <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,5"/>
-                    <ComboBox Style="{StaticResource FluentComboBoxStyle}"
-                              ItemsSource="{Binding ControllerFilterOptions}"
-                              SelectedItem="{Binding SelectedControllerFilter}"
-                              DisplayMemberPath="DisplayName"
-                              MinWidth="240" Height="40" Padding="12,8"
-                              FontSize="13" FontWeight="Medium"
-                              Cursor="Hand"/>
-                </StackPanel>
-            </WrapPanel>
+            <!-- Başlık -->
+            <StackPanel Margin="0,0,0,20">
+                <TextBlock Text="Genel Bakış" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                <TextBlock Text="Oyun kolunuzun gerçek zamanlı bağlantı süreleri ve pil kullanım özeti." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
+            </StackPanel>
 
             <!-- Geri Bildirim Banner'ı (Örn: CSV Dışa Aktarıldı) -->
             <Border Background="#ECFDF3" BorderBrush="#ABEFC6" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,16"

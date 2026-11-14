@@ -46,30 +46,15 @@
                 </Grid>
             </Border>
 
-            <!-- Başlık ve Filtreler (Responsive WrapPanel) -->
+            <!-- Başlık ve CSV Dışa Aktar (Responsive) -->
             <WrapPanel Margin="0,0,0,20" Orientation="Horizontal">
                 <StackPanel Margin="0,0,24,12" VerticalAlignment="Center">
                     <TextBlock Text="Pil Yönetimi" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
                     <TextBlock Text="Bluetooth donanımsal pil durumu, telemetri hassasiyeti ve pil seti değişim kayıtları." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12"
-                           MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-                    <!-- Kontrolcü Filtresi -->
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,6">
-                        <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,4"/>
-                        <ComboBox Style="{StaticResource FluentComboBoxStyle}"
-                                  ItemsSource="{Binding ControllerFilterOptions}"
-                                  SelectedItem="{Binding SelectedControllerFilter}"
-                                  DisplayMemberPath="DisplayName"
-                                  MinWidth="220" Height="38" Padding="10,6"
-                                  FontSize="13" FontWeight="Medium"
-                                  Cursor="Hand"/>
-                    </StackPanel>
-
-                    <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" 
-                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,18,0,6"/>
-                </WrapPanel>
+                <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" 
+                        Command="{Binding ExportCsvCommand}" Height="38" Margin="0,0,0,12" VerticalAlignment="Center"/>
             </WrapPanel>
 
             <!-- Üst Blok: Mevcut Durum ve Pil Değişimi Formu (Responsive 2 Sütun) -->

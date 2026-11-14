@@ -47,6 +47,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ConnectedDeviceCardViewModel> ConnectedControllers { get; } = new();
 
+    public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
+
+    [ObservableProperty]
+    private ControllerFilterOption? _selectedControllerFilter;
+
+    partial void OnSelectedControllerFilterChanged(ControllerFilterOption? value)
+    {
+        if (value == null) return;
+        _isUserExplicitSelection = true;
+        _currentSelectedDeviceKey = value.DeviceKey;
+
+        DashboardVM.SelectedControllerFilter = DashboardVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == value.DeviceKey);
+        SessionsVM.SelectedControllerFilter = SessionsVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == value.DeviceKey);
+        AnalyticsVM.SelectedControllerFilter = AnalyticsVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == value.DeviceKey);
+        BatteryVM.SelectedControllerFilter = BatteryVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == value.DeviceKey);
+    }
+
     [ObservableProperty]
     private bool _hasConnectedControllers = false;
 
@@ -462,6 +479,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _currentSelectedDeviceKey = anilOption?.DeviceKey ?? options.FirstOrDefault()?.DeviceKey ?? "ALL";
         }
 
+        ControllerFilterOptions.Clear();
+        foreach (var opt in options)
+        {
+            ControllerFilterOptions.Add(opt);
+        }
+
+        SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == _currentSelectedDeviceKey)
+            ?? ControllerFilterOptions.FirstOrDefault();
+
         DashboardVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
         SessionsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
         AnalyticsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
@@ -472,6 +498,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         _isUserExplicitSelection = true;
         _currentSelectedDeviceKey = deviceKey;
+
+        if (SelectedControllerFilter?.DeviceKey != deviceKey)
+        {
+            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == deviceKey);
+        }
 
         if (source != DashboardVM) DashboardVM.SelectedControllerFilter = DashboardVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == deviceKey);
         if (source != SessionsVM) SessionsVM.SelectedControllerFilter = SessionsVM.ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == deviceKey);

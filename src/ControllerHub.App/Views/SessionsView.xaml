@@ -19,33 +19,20 @@
                 <TextBlock Text="{Binding StatusFeedback}" FontWeight="Medium" Foreground="#067647" FontSize="13"/>
             </Border>
 
-            <!-- Başlık ve Filtreler (Responsive WrapPanel) -->
+            <!-- Başlık ve Aksiyon Butonları (Responsive) -->
             <WrapPanel Margin="0,0,0,20" Orientation="Horizontal">
                 <StackPanel Margin="0,0,24,12" VerticalAlignment="Center">
                     <TextBlock Text="Oturum Geçmişi" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
                     <TextBlock Text="Kontrolcünün bilgisayara bağlandığı tüm oturumların kronolojik kaydı." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12"
-                           MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-                    <!-- Kontrolcü Filtresi -->
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,6">
-                        <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,4"/>
-                        <ComboBox Style="{StaticResource FluentComboBoxStyle}"
-                                  ItemsSource="{Binding ControllerFilterOptions}"
-                                  SelectedItem="{Binding SelectedControllerFilter}"
-                                  DisplayMemberPath="DisplayName"
-                                  MinWidth="220" Height="38" Padding="10,6"
-                                  FontSize="13" FontWeight="Medium"
-                                  Cursor="Hand"/>
-                    </StackPanel>
-
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
                     <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" 
-                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,18,10,6"/>
+                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,0,10,0"/>
 
                     <Button Content="🗑️  Geçmişi Temizle" Style="{StaticResource DangerButtonStyle}" 
-                            Command="{Binding ClearSessionsCommand}" Height="38" Margin="0,18,0,6"/>
-                </WrapPanel>
+                            Command="{Binding ClearSessionsCommand}" Height="38"/>
+                </StackPanel>
             </WrapPanel>
 
             <!-- Filtre Sekmeleri (FR-06) -->

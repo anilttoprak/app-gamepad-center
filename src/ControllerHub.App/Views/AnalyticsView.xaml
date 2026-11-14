@@ -8,25 +8,11 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="28,24,28,32">
 
-            <!-- Başlık ve Filtreler (Responsive WrapPanel) -->
-            <WrapPanel Margin="0,0,0,20" Orientation="Horizontal">
-                <StackPanel Margin="0,0,24,12" VerticalAlignment="Center">
-                    <TextBlock Text="Analizler &amp; İstatistikler" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
-                    <TextBlock Text="Kalıcı oturum verilerine dayalı bağlantı alışkanlıkları ve donanım kullanım analitiği." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
-                </StackPanel>
-
-                <!-- Kontrolcü Filtresi -->
-                <StackPanel VerticalAlignment="Center" Margin="0,0,0,12">
-                    <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,5"/>
-                    <ComboBox Style="{StaticResource FluentComboBoxStyle}"
-                              ItemsSource="{Binding ControllerFilterOptions}"
-                              SelectedItem="{Binding SelectedControllerFilter}"
-                              DisplayMemberPath="DisplayName"
-                              MinWidth="240" Height="40" Padding="12,8"
-                              FontSize="13" FontWeight="Medium"
-                              Cursor="Hand"/>
-                </StackPanel>
-            </WrapPanel>
+            <!-- Başlık -->
+            <StackPanel Margin="0,0,0,20">
+                <TextBlock Text="Analizler &amp; İstatistikler" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                <TextBlock Text="Kalıcı oturum verilerine dayalı bağlantı alışkanlıkları ve donanım kullanım analitiği." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
+            </StackPanel>
 
             <!-- 4 Ana Analiz Kartı (Gerçek SQLite İstatistikleri) -->
             <Grid Margin="0,0,0,24">
