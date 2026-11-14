@@ -10,6 +10,9 @@ public class SystemTrayManager : IDisposable
 {
     private const int WM_USER = 0x0400;
     private const int WM_TRAYCALLBACK = WM_USER + 1024;
+    private const int WM_CONTEXTMENU = 0x007B;
+    private const int NIN_SELECT = WM_USER + 0;
+    private const int NIN_KEYSELECT = WM_USER + 1;
     private const int WM_LBUTTONUP = 0x0202;
     private const int WM_LBUTTONDBLCLK = 0x0203;
     private const int WM_RBUTTONUP = 0x0205;
@@ -140,11 +143,6 @@ public class SystemTrayManager : IDisposable
         };
 
         _isCreated = Shell_NotifyIcon(NIM_ADD, ref _notifyData);
-        if (_isCreated)
-        {
-            _notifyData.uTimeoutOrVersion = NOTIFYICON_VERSION_4;
-            Shell_NotifyIcon(NIM_SETVERSION, ref _notifyData);
-        }
     }
 
     public void UpdateStatus(string statusText)
@@ -193,11 +191,15 @@ public class SystemTrayManager : IDisposable
 
     public void RestoreWindow()
     {
-        _window.Show();
-        if (_window.WindowState == WindowState.Minimized)
+        if (!_window.Dispatcher.CheckAccess())
         {
-            _window.WindowState = WindowState.Normal;
+            _window.Dispatcher.Invoke(RestoreWindow);
+            return;
         }
+
+        _window.Show();
+        _window.WindowState = WindowState.Normal;
+        _window.Visibility = Visibility.Visible;
 
         var helper = new WindowInteropHelper(_window);
         if (helper.Handle != IntPtr.Zero)
@@ -216,13 +218,13 @@ public class SystemTrayManager : IDisposable
     {
         if (msg == WM_TRAYCALLBACK)
         {
-            int mouseMsg = (int)lParam;
-            if (mouseMsg == WM_LBUTTONUP || mouseMsg == WM_LBUTTONDBLCLK)
+            int eventId = (int)((long)lParam & 0xFFFF);
+            if (eventId == WM_LBUTTONUP || eventId == WM_LBUTTONDBLCLK || eventId == NIN_SELECT || eventId == NIN_KEYSELECT)
             {
                 RestoreWindow();
                 handled = true;
             }
-            else if (mouseMsg == WM_RBUTTONUP)
+            else if (eventId == WM_RBUTTONUP || eventId == WM_CONTEXTMENU)
             {
                 ShowContextMenu();
                 handled = true;
@@ -234,8 +236,17 @@ public class SystemTrayManager : IDisposable
 
     private void ShowContextMenu()
     {
+        if (!_window.Dispatcher.CheckAccess())
+        {
+            _window.Dispatcher.Invoke(ShowContextMenu);
+            return;
+        }
+
         var helper = new WindowInteropHelper(_window);
-        SetForegroundWindow(helper.Handle);
+        if (helper.Handle != IntPtr.Zero)
+        {
+            SetForegroundWindow(helper.Handle);
+        }
 
         var menu = new ContextMenu
         {
