@@ -303,8 +303,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             if (SettingsVM.NotificationsEnabled)
             {
                 NotificationRequested?.Invoke(this, (
-                    "🎮 Kontrolcü Bağlandı",
-                    $"{ActiveControllerName} bağlandı. Oturum kaydı başlatıldı."));
+                    "Kontrolcü Bağlandı",
+                    $"{ActiveControllerName} bağlandı, oturum kaydı başlatıldı."));
             }
             TrayStatusUpdated?.Invoke(this, "🟢 Bağlı (Aktif)");
             _ = SyncControllerFiltersAsync();
@@ -321,8 +321,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             if (SettingsVM.NotificationsEnabled)
             {
                 NotificationRequested?.Invoke(this, (
-                    "⚪ Kontrolcü Bağlantısı Kesildi",
-                    $"Oturum tamamlandı. Süre: {formatted}"));
+                    "Kontrolcü Bağlantısı Kesildi",
+                    $"{ActiveControllerName} bağlantısı kesildi. Süre: {formatted}"));
             }
             TrayStatusUpdated?.Invoke(this, "⚪ Bağlı Değil");
             _ = SyncControllerFiltersAsync();

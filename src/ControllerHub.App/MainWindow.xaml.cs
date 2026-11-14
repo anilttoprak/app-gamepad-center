@@ -51,8 +51,8 @@ public partial class MainWindow : Window
             e.Cancel = true;
             Hide();
             _trayManager.ShowNotification(
-                "Gamepad Center Arka Planda",
-                "Uygulama sistem tepsisinde çalışmaya devam ediyor.");
+                "Arka Planda Çalışıyor",
+                "Gamepad Center sistem tepsisinde açık kalmaya devam ediyor.");
         }
         else
         {

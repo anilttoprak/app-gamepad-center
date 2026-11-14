@@ -165,26 +165,8 @@ public class SystemTrayManager : IDisposable
         _notifyData.uFlags = NIF_INFO;
         _notifyData.szInfoTitle = title.Length > 63 ? title.Substring(0, 63) : title;
         _notifyData.szInfo = message.Length > 255 ? message.Substring(0, 255) : message;
-
-        if (isError)
-        {
-            _notifyData.dwInfoFlags = NIIF_ERROR;
-            _notifyData.hBalloonIcon = IntPtr.Zero;
-        }
-        else
-        {
-            var customIcon = _hIconLarge != IntPtr.Zero ? _hIconLarge : _hIcon;
-            if (customIcon != IntPtr.Zero)
-            {
-                _notifyData.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON;
-                _notifyData.hBalloonIcon = customIcon;
-            }
-            else
-            {
-                _notifyData.dwInfoFlags = NIIF_INFO;
-                _notifyData.hBalloonIcon = IntPtr.Zero;
-            }
-        }
+        _notifyData.dwInfoFlags = isError ? NIIF_ERROR : NIIF_INFO;
+        _notifyData.hBalloonIcon = IntPtr.Zero;
 
         Shell_NotifyIcon(NIM_MODIFY, ref _notifyData);
     }

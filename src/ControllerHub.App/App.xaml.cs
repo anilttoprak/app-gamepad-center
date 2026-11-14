@@ -7,16 +7,10 @@ namespace ControllerHub.App;
 
 public partial class App : Application
 {
-    private const string AppId = "GamepadCenter.App";
-
-    [DllImport("shell32.dll", SetLastError = true)]
-    private static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
-
     public App()
     {
         try
         {
-            SetCurrentProcessExplicitAppUserModelID(AppId);
             EnsureStartMenuShortcut();
         }
         catch { }
@@ -63,6 +57,7 @@ public partial class App : Application
 
             dynamic shortcut = shell.CreateShortcut(shortcutPath);
             shortcut.TargetPath = exePath;
+            shortcut.IconLocation = $"{exePath},0";
             shortcut.WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory;
             shortcut.Description = "Gamepad Center — Evrensel Kontrol Merkezi";
             shortcut.Save();
