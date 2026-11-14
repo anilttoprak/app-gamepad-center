@@ -10,7 +10,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="28,24,28,32">
 
             <!-- Bildirim / Geri Bildirim Banner'ı -->
@@ -26,7 +26,8 @@
                     <TextBlock Text="Kontrolcünün bilgisayara bağlandığı tüm oturumların kronolojik kaydı." FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
+                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12"
+                           MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
                     <!-- Kontrolcü Filtresi -->
                     <StackPanel VerticalAlignment="Center" Margin="0,0,12,6">
                         <TextBlock Text="Görüntülenen Kontrolcü:" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,4"/>
