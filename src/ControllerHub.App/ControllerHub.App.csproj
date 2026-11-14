@@ -22,11 +22,17 @@
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
-    <Product>Controller Hub</Product>
-    <Description>Windows 11 Xbox Controller Bluetooth Session &amp; Battery Monitor</Description>
-    <Authors>ControllerHub</Authors>
-    <Company>ControllerHub</Company>
-    <Copyright>Copyright © 2026 ControllerHub</Copyright>
+    <Product>Gamepad Center</Product>
+    <Description>Gamepad Center — Evrensel Oyun Kolu Oturum ve Pil Yöneticisi</Description>
+    <Authors>GamepadCenter</Authors>
+    <Company>GamepadCenter</Company>
+    <Copyright>Copyright © 2026 Gamepad Center</Copyright>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app_icon.ico" />
+    <Resource Include="Assets\app_icon.png" />
+    <Resource Include="Assets\logo_badge.png" />
+  </ItemGroup>
 
 </Project>

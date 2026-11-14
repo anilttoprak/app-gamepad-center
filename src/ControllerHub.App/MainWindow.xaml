@@ -7,6 +7,7 @@
         xmlns:views="clr-namespace:ControllerHub.App.Views"
         mc:Ignorable="d"
         Title="Gamepad Center — Evrensel Kontrol Merkezi" 
+        Icon="Assets/app_icon.png"
         Height="780" Width="1180"
         MinHeight="640" MinWidth="980"
         WindowStartupLocation="CenterScreen"
@@ -56,9 +57,8 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <!-- Modern Gamepad İkon Rozeti -->
-                        <Border Grid.Column="0" Width="36" Height="36" Background="{StaticResource BrushAccent}" CornerRadius="9" Margin="0,0,12,0">
-                            <TextBlock Text="🎮" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        <Image Grid.Column="0" Source="Assets/logo_badge.png" Width="36" Height="36" Margin="0,0,12,0"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="Gamepad Center" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
                             <TextBlock Text="Evrensel Kontrol Merkezi" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,1,0,0"/>
