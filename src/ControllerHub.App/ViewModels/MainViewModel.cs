@@ -158,6 +158,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
             await DashboardVM.RefreshDataAsync();
             await SessionsVM.RefreshDataAsync();
             await SettingsVM.LoadKnownControllersAsync();
+
+            if (_deviceWatcher.ConnectedDevices.Count == 1 && _deviceWatcher.ConnectedDevices[0].DeviceKey == item.DeviceKey)
+            {
+                ActiveControllerName = dialog.CustomName;
+                DashboardVM.ActiveControllerName = dialog.CustomName;
+                DashboardVM.ConnectionStateText = $"🟢 Bağlı ({dialog.CustomName})";
+                TrayStatusUpdated?.Invoke(this, $"🟢 {dialog.CustomName}");
+            }
         }
     }
 
@@ -222,9 +230,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
         else if (CurrentView is SettingsViewModel st) await st.LoadSettingsAsync();
     }
 
+    private async Task<string> GetControllerDisplayNameAsync(string? deviceKey, string fallbackHardwareName = "Kontrolcü")
+    {
+        if (string.IsNullOrWhiteSpace(deviceKey))
+            return fallbackHardwareName;
+
+        try
+        {
+            var alias = await _metadataRepository.GetCustomNameAsync(deviceKey);
+            if (!string.IsNullOrWhiteSpace(alias))
+            {
+                return alias;
+            }
+        }
+        catch { }
+
+        return !string.IsNullOrWhiteSpace(fallbackHardwareName) ? fallbackHardwareName : "Kontrolcü";
+    }
+
     private void OnDeviceConnectionChanged(object? sender, DeviceConnectionChangedEventArgs e)
     {
-        Application.Current?.Dispatcher?.BeginInvoke(() =>
+        Application.Current?.Dispatcher?.BeginInvoke(async () =>
         {
             var connectedList = _deviceWatcher.ConnectedDevices;
             IsDeviceConnected = connectedList.Count > 0;
@@ -241,23 +267,30 @@ public partial class MainViewModel : ObservableObject, IDisposable
             else if (connectedList.Count == 1)
             {
                 var dev = connectedList[0];
-                ActiveControllerName = dev.Name;
+                string displayName = await GetControllerDisplayNameAsync(dev.DeviceKey, dev.Name);
+                ActiveControllerName = displayName;
                 var connTypeStr = dev.ConnectionType == ControllerConnectionType.WiredUsb ? "Kablolu" : "BT";
                 ConnectionStatusBadge = $"🟢 Bağlı ({connTypeStr})";
                 StatusColorBrush = "#16A36A";
                 DashboardVM.IsConnected = true;
-                DashboardVM.ConnectionStateText = $"🟢 Bağlı ({dev.Name})";
-                DashboardVM.ActiveControllerName = dev.Name;
-                TrayStatusUpdated?.Invoke(this, $"🟢 {dev.Name}");
+                DashboardVM.ConnectionStateText = $"🟢 Bağlı ({displayName})";
+                DashboardVM.ActiveControllerName = displayName;
+                TrayStatusUpdated?.Invoke(this, $"🟢 {displayName}");
             }
             else
             {
                 // Çoklu kontrolcü bağlı
+                var customNames = await _metadataRepository.GetAllCustomNamesAsync();
+                var shortNames = connectedList.Select(c =>
+                    customNames.TryGetValue(c.DeviceKey, out var alias) && !string.IsNullOrWhiteSpace(alias)
+                        ? alias
+                        : c.Name.Split(' ')[0]);
+
                 ActiveControllerName = $"{connectedList.Count} Kontrolcü Bağlı";
                 ConnectionStatusBadge = $"🟢 {connectedList.Count} Kol Aktif";
                 StatusColorBrush = "#16A36A";
                 DashboardVM.IsConnected = true;
-                DashboardVM.ConnectionStateText = $"🟢 {connectedList.Count} Kol Bağlı ({string.Join(" + ", connectedList.Select(c => c.Name.Split(' ')[0]))})";
+                DashboardVM.ConnectionStateText = $"🟢 {connectedList.Count} Kol Bağlı ({string.Join(" + ", shortNames)})";
                 DashboardVM.ActiveControllerName = $"{connectedList.Count} Kontrolcü Bağlı";
                 TrayStatusUpdated?.Invoke(this, $"🟢 {connectedList.Count} Kol Aktif");
             }
@@ -296,33 +329,37 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnSessionStarted(object? sender, ControllerSession session)
     {
-        Application.Current?.Dispatcher?.BeginInvoke(() =>
+        Application.Current?.Dispatcher?.BeginInvoke(async () =>
         {
             HardwareDiagnosticsText = $"Oturum #{session.Id} Başlatıldı ({session.StartedAtUtc.ToLocalTime():HH:mm:ss})";
+
+            string controllerName = await GetControllerDisplayNameAsync(session.DeviceKey, session.DeviceName);
 
             if (SettingsVM.NotificationsEnabled)
             {
                 NotificationRequested?.Invoke(this, (
                     "Kontrolcü Bağlandı",
-                    $"{ActiveControllerName} bağlandı, oturum kaydı başlatıldı."));
+                    $"{controllerName} bağlandı, oturum kaydı başlatıldı."));
             }
-            TrayStatusUpdated?.Invoke(this, "🟢 Bağlı (Aktif)");
+            TrayStatusUpdated?.Invoke(this, $"🟢 {controllerName}");
             _ = SyncControllerFiltersAsync();
         });
     }
 
     private void OnSessionEnded(object? sender, ControllerSession session)
     {
-        Application.Current?.Dispatcher?.BeginInvoke(() =>
+        Application.Current?.Dispatcher?.BeginInvoke(async () =>
         {
             var formatted = SessionTimeCalculator.FormatDurationText(TimeSpan.FromSeconds(session.DurationSeconds));
             HardwareDiagnosticsText = $"Oturum #{session.Id} Kapatıldı (Süre: {formatted})";
+
+            string controllerName = await GetControllerDisplayNameAsync(session.DeviceKey, session.DeviceName);
 
             if (SettingsVM.NotificationsEnabled)
             {
                 NotificationRequested?.Invoke(this, (
                     "Kontrolcü Bağlantısı Kesildi",
-                    $"{ActiveControllerName} bağlantısı kesildi. Süre: {formatted}"));
+                    $"{controllerName} bağlantısı kesildi. Süre: {formatted}"));
             }
             TrayStatusUpdated?.Invoke(this, "⚪ Bağlı Değil");
             _ = SyncControllerFiltersAsync();
