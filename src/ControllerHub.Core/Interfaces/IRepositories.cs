@@ -10,6 +10,8 @@ public interface ISessionRepository
     Task<IReadOnlyList<ControllerSession>> GetRecentSessionsAsync(int limit = 50);
     Task<IReadOnlyList<ControllerSession>> GetSessionsInRangeAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc);
     Task<int> RecoverOrphanedSessionsAsync(DateTimeOffset recoveryTimeUtc);
+    Task<bool> DeleteSessionAsync(long id);
+    Task<int> ClearCompletedSessionsAsync(string? deviceKey = null);
 }
 
 public interface IBatteryRepository

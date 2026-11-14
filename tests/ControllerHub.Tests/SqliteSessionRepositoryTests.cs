@@ -21,6 +21,46 @@ public class SqliteSessionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteSessionAsync_ShouldRemoveSpecifiedSession()
+    {
+        var s1 = await _repo.StartSessionAsync("XBOX_TEST", DateTimeOffset.UtcNow.AddMinutes(-20));
+        await _repo.EndSessionAsync("XBOX_TEST", DateTimeOffset.UtcNow.AddMinutes(-10), SessionEndReason.Disconnected);
+
+        var s2 = await _repo.StartSessionAsync("XBOX_TEST", DateTimeOffset.UtcNow.AddMinutes(-5));
+        await _repo.EndSessionAsync("XBOX_TEST", DateTimeOffset.UtcNow, SessionEndReason.Disconnected);
+
+        var before = await _repo.GetRecentSessionsAsync(10);
+        Assert.Equal(2, before.Count);
+
+        var deleted = await _repo.DeleteSessionAsync(s1.Id);
+        Assert.True(deleted);
+
+        var after = await _repo.GetRecentSessionsAsync(10);
+        Assert.Single(after);
+        Assert.Equal(s2.Id, after[0].Id);
+    }
+
+    [Fact]
+    public async Task ClearCompletedSessionsAsync_ShouldRemoveAllCompletedSessions()
+    {
+        var s1 = await _repo.StartSessionAsync("XBOX_A", DateTimeOffset.UtcNow.AddMinutes(-20));
+        await _repo.EndSessionAsync("XBOX_A", DateTimeOffset.UtcNow.AddMinutes(-10), SessionEndReason.Disconnected);
+
+        var s2 = await _repo.StartSessionAsync("XBOX_B", DateTimeOffset.UtcNow.AddMinutes(-5));
+        await _repo.EndSessionAsync("XBOX_B", DateTimeOffset.UtcNow, SessionEndReason.Disconnected);
+
+        // Aktif oturum da olsun - silinmemeli
+        var active = await _repo.StartSessionAsync("XBOX_ACTIVE", DateTimeOffset.UtcNow);
+
+        var clearedCount = await _repo.ClearCompletedSessionsAsync();
+        Assert.Equal(2, clearedCount);
+
+        var remaining = await _repo.GetRecentSessionsAsync(10);
+        Assert.Single(remaining);
+        Assert.Equal(active.Id, remaining[0].Id);
+    }
+
+    [Fact]
     public async Task StartAndEndSession_ShouldPersistCorrectly()
     {
         var startedAt = DateTimeOffset.UtcNow.AddMinutes(-30);

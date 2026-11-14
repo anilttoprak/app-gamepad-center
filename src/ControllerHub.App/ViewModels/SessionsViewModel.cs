@@ -270,6 +270,60 @@ public partial class SessionsViewModel : ViewModelBase
         }
     }
 
+    public event EventHandler? SessionsModified;
+
+    [RelayCommand]
+    private async Task DeleteSessionAsync(SessionDisplayItem? item)
+    {
+        if (item == null || item.IsActive || _sessionRepository == null) return;
+
+        var result = System.Windows.MessageBox.Show(
+            $"#{item.Id} numaralı oturum kaydını ({item.Date} - {item.Duration}) silmek istediğinize emin misiniz?",
+            "Oturumu Sil",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
+        var success = await _sessionRepository.DeleteSessionAsync(item.Id);
+        if (success)
+        {
+            await RefreshDataAsync();
+            SessionsModified?.Invoke(this, EventArgs.Empty);
+            ShowFeedback($"🗑️ #{item.Id} numaralı oturum kaydı silindi.");
+        }
+    }
+
+    [RelayCommand]
+    private async Task ClearSessionsAsync()
+    {
+        if (_sessionRepository == null || _allSessions.Count == 0)
+        {
+            ShowFeedback("⚠️ Temizlenecek kayıtlı oturum bulunmuyor.");
+            return;
+        }
+
+        var selectedKey = SelectedControllerFilter?.DeviceKey ?? "ALL";
+        var controllerName = SelectedControllerFilter?.DisplayName ?? "Tüm Kontrolcüler";
+
+        var prompt = selectedKey == "ALL"
+            ? "Tüm kontrolcülerin tamamlanan oturum geçmişi kalıcı olarak silinecek. Emin misiniz?"
+            : $"'{controllerName}' kontrolcüsüne ait tüm oturum geçmişi kalıcı olarak silinecek. Emin misiniz?";
+
+        var result = System.Windows.MessageBox.Show(
+            prompt,
+            "Oturum Geçmişini Temizle",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
+        var count = await _sessionRepository.ClearCompletedSessionsAsync(selectedKey);
+        await RefreshDataAsync();
+        SessionsModified?.Invoke(this, EventArgs.Empty);
+        ShowFeedback($"🗑️ Toplam {count} oturum kaydı başarıyla silindi.");
+    }
+
     private void ShowFeedback(string message)
     {
         StatusFeedback = message;

@@ -192,6 +192,32 @@ public class SqliteSessionRepository : ISessionRepository
         return result;
     }
 
+    public async Task<bool> DeleteSessionAsync(long id)
+    {
+        using var conn = _context.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM Sessions WHERE Id = @id;";
+        cmd.Parameters.AddWithValue("@id", id);
+        var rows = await cmd.ExecuteNonQueryAsync();
+        return rows > 0;
+    }
+
+    public async Task<int> ClearCompletedSessionsAsync(string? deviceKey = null)
+    {
+        using var conn = _context.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        if (string.IsNullOrWhiteSpace(deviceKey) || deviceKey == "ALL")
+        {
+            cmd.CommandText = "DELETE FROM Sessions WHERE EndedAtUtc IS NOT NULL;";
+        }
+        else
+        {
+            cmd.CommandText = "DELETE FROM Sessions WHERE EndedAtUtc IS NOT NULL AND DeviceKey = @deviceKey;";
+            cmd.Parameters.AddWithValue("@deviceKey", deviceKey);
+        }
+        return await cmd.ExecuteNonQueryAsync();
+    }
+
     private static ControllerSession MapReaderToSession(SqliteDataReader reader)
     {
         var session = new ControllerSession

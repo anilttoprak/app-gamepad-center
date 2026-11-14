@@ -45,7 +45,10 @@
                     </StackPanel>
 
                     <Button Content="💾  CSV Dışa Aktar" Style="{StaticResource SecondaryButtonStyle}" 
-                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,18,0,0"/>
+                            Command="{Binding ExportCsvCommand}" Height="38" Margin="0,18,10,0"/>
+
+                    <Button Content="🗑️  Geçmişi Temizle" Style="{StaticResource DangerButtonStyle}" 
+                            Command="{Binding ClearSessionsCommand}" Height="38" Margin="0,18,0,0"/>
                 </StackPanel>
             </Grid>
 
@@ -115,6 +118,27 @@
                         <DataGridTextColumn Header="Bağlantı Süresi" Binding="{Binding Duration}" Width="120"/>
                         <DataGridTextColumn Header="Bitiş Sebebi" Binding="{Binding EndReason}" Width="170"/>
                         <DataGridTextColumn Header="Durum" Binding="{Binding Status}" Width="*"/>
+                        <DataGridTemplateColumn Header="İşlem" Width="60">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="🗑️" ToolTip="Bu oturumu sil"
+                                            Command="{Binding DataContext.DeleteSessionCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="13" Padding="4,2">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </Border>

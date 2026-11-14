@@ -109,6 +109,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
             DashboardVM.NavigationRequested += async (_, target) => await NavigateAsync(target);
             BatteryVM.Initialize(_batteryRepository, _deviceWatcher, _sessionRepository, _sessionTracker);
             SessionsVM.Initialize(_sessionRepository, _sessionTracker);
+            SessionsVM.SessionsModified += async (_, _) =>
+            {
+                await DashboardVM.RefreshDataAsync();
+                await AnalyticsVM.RefreshDataAsync();
+                await BatteryVM.RefreshDataAsync();
+            };
             AnalyticsVM.Initialize(_sessionRepository, _batteryRepository, _sessionTracker);
             SettingsVM.Initialize(_settingsRepository, _startupService, _dbContext.DatabasePath, _sessionRepository, _metadataRepository);
 
