@@ -15,7 +15,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyName>ControllerHub</AssemblyName>
+    <AssemblyName>GamepadCenter</AssemblyName>
 
     <!-- Sürüm ve Uygulama Meta Verileri (Aşama 9) -->
     <ApplicationIcon>Assets\app_icon.ico</ApplicationIcon>
@@ -23,6 +23,7 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <Product>Gamepad Center</Product>
+    <AssemblyTitle>Gamepad Center</AssemblyTitle>
     <Description>Gamepad Center — Evrensel Oyun Kolu Oturum ve Pil Yöneticisi</Description>
     <Authors>GamepadCenter</Authors>
     <Company>GamepadCenter</Company>

@@ -28,6 +28,9 @@ public class SystemTrayManager : IDisposable
     private const int NIIF_INFO = 0x00000001;
     private const int NIIF_WARNING = 0x00000002;
     private const int NIIF_ERROR = 0x00000003;
+    private const int NIIF_USER = 0x00000004;
+    private const int NIIF_LARGE_ICON = 0x00000020;
+    private const int NOTIFYICON_VERSION_4 = 4;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NOTIFYICONDATA
@@ -86,6 +89,7 @@ public class SystemTrayManager : IDisposable
     private readonly Action _onExitRequested;
     private NOTIFYICONDATA _notifyData;
     private IntPtr _hIcon = IntPtr.Zero;
+    private IntPtr _hIconLarge = IntPtr.Zero;
     private bool _isCreated = false;
     private bool _disposed = false;
     private string _currentStatusText = "⚪ Bağlı Değil";
@@ -110,12 +114,16 @@ public class SystemTrayManager : IDisposable
             var exePath = Environment.ProcessPath;
             if (!string.IsNullOrEmpty(exePath))
             {
-                ExtractIconEx(exePath, 0, out _, out _hIcon, 1);
+                ExtractIconEx(exePath, 0, out _hIconLarge, out _hIcon, 1);
             }
         }
         catch { }
 
-        if (_hIcon == IntPtr.Zero)
+        if (_hIcon == IntPtr.Zero && _hIconLarge != IntPtr.Zero)
+        {
+            _hIcon = _hIconLarge;
+        }
+        else if (_hIcon == IntPtr.Zero)
         {
             _hIcon = LoadIcon(IntPtr.Zero, (IntPtr)32512); // IDI_APPLICATION
         }
@@ -132,6 +140,11 @@ public class SystemTrayManager : IDisposable
         };
 
         _isCreated = Shell_NotifyIcon(NIM_ADD, ref _notifyData);
+        if (_isCreated)
+        {
+            _notifyData.uTimeoutOrVersion = NOTIFYICON_VERSION_4;
+            Shell_NotifyIcon(NIM_SETVERSION, ref _notifyData);
+        }
     }
 
     public void UpdateStatus(string statusText)
@@ -154,7 +167,26 @@ public class SystemTrayManager : IDisposable
         _notifyData.uFlags = NIF_INFO;
         _notifyData.szInfoTitle = title.Length > 63 ? title.Substring(0, 63) : title;
         _notifyData.szInfo = message.Length > 255 ? message.Substring(0, 255) : message;
-        _notifyData.dwInfoFlags = isError ? NIIF_ERROR : NIIF_INFO;
+
+        if (isError)
+        {
+            _notifyData.dwInfoFlags = NIIF_ERROR;
+            _notifyData.hBalloonIcon = IntPtr.Zero;
+        }
+        else
+        {
+            var customIcon = _hIconLarge != IntPtr.Zero ? _hIconLarge : _hIcon;
+            if (customIcon != IntPtr.Zero)
+            {
+                _notifyData.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON;
+                _notifyData.hBalloonIcon = customIcon;
+            }
+            else
+            {
+                _notifyData.dwInfoFlags = NIIF_INFO;
+                _notifyData.hBalloonIcon = IntPtr.Zero;
+            }
+        }
 
         Shell_NotifyIcon(NIM_MODIFY, ref _notifyData);
     }
@@ -259,10 +291,16 @@ public class SystemTrayManager : IDisposable
                 _isCreated = false;
             }
 
-            if (_hIcon != IntPtr.Zero)
+            if (_hIcon != IntPtr.Zero && _hIcon != _hIconLarge)
             {
                 DestroyIcon(_hIcon);
-                _hIcon = IntPtr.Zero;
+            }
+            _hIcon = IntPtr.Zero;
+
+            if (_hIconLarge != IntPtr.Zero)
+            {
+                DestroyIcon(_hIconLarge);
+                _hIconLarge = IntPtr.Zero;
             }
         }
     }

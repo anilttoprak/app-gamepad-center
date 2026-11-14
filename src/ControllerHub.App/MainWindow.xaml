@@ -7,7 +7,7 @@
         xmlns:views="clr-namespace:ControllerHub.App.Views"
         mc:Ignorable="d"
         Title="Gamepad Center — Evrensel Kontrol Merkezi" 
-        Icon="Assets/app_icon.png"
+        Icon="Assets/app_icon.ico"
         Height="780" Width="1180"
         MinHeight="640" MinWidth="980"
         WindowStartupLocation="CenterScreen"
