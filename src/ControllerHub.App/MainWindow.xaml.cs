@@ -9,29 +9,22 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly SystemTrayManager _trayManager;
+    private readonly bool _isAutostart;
     private bool _isExplicitExit = false;
 
-    public MainWindow()
+    public MainWindow() : this(false)
+    {
+    }
+
+    public MainWindow(bool isAutostart)
     {
         InitializeComponent();
+        _isAutostart = isAutostart;
         _viewModel = new MainViewModel();
         DataContext = _viewModel;
 
         _trayManager = new SystemTrayManager(this, RequestExit);
-
-        Loaded += OnWindowLoaded;
-        Closing += OnWindowClosing;
-    }
-
-    private void OnWindowLoaded(object sender, RoutedEventArgs e)
-    {
         _trayManager.Initialize();
-
-        // Uygulama açıldığında pencereyi en öne getir ve odakla
-        Activate();
-        Topmost = true;
-        Topmost = false;
-        Focus();
 
         _viewModel.NotificationRequested += (_, notification) =>
         {
@@ -42,6 +35,28 @@ public partial class MainWindow : Window
         {
             _trayManager.UpdateStatus(status);
         };
+
+        Loaded += OnWindowLoaded;
+        Closing += OnWindowClosing;
+
+        if (_isAutostart)
+        {
+            _trayManager.ShowNotification(
+                "Gamepad Center Arka Planda Hazır",
+                "Kontrolcünüz bağlandığında oturum ve pil durumu otomatik takip edilecektir.");
+        }
+    }
+
+    private void OnWindowLoaded(object sender, RoutedEventArgs e)
+    {
+        if (!_isAutostart)
+        {
+            // Uygulama elle açıldığında pencereyi en öne getir ve odakla
+            Activate();
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        }
     }
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)

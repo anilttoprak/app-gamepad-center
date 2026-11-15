@@ -101,6 +101,11 @@ public partial class SettingsViewModel : ViewModelBase
             if (_startupService != null)
             {
                 StartWithWindows = _startupService.IsStartupEnabled();
+                if (StartWithWindows)
+                {
+                    // Başlangıç kayıtlarının (--autostart ve kısayol) eksiksiz olduğundan emin ol
+                    _startupService.SetStartup(true);
+                }
             }
             else
             {

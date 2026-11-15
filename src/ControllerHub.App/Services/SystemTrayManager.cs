@@ -35,6 +35,9 @@ public class SystemTrayManager : IDisposable
     private const int NIIF_LARGE_ICON = 0x00000020;
     private const int NOTIFYICON_VERSION_4 = 4;
 
+    private const int SW_RESTORE = 9;
+    private const uint MSGFLT_ADD = 1;
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NOTIFYICONDATA
     {
@@ -86,7 +89,14 @@ public class SystemTrayManager : IDisposable
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-    private const int SW_RESTORE = 9;
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint RegisterWindowMessage(string lpString);
+
+    [DllImport("user32.dll")]
+    private static extern bool ChangeWindowMessageFilter(uint message, uint dwFlag);
+
+    private static uint s_uTaskbarCreated = 0;
+    private static uint s_uShowGamepadCenter = 0;
 
     private readonly Window _window;
     private readonly Action _onExitRequested;
@@ -96,6 +106,7 @@ public class SystemTrayManager : IDisposable
     private bool _isCreated = false;
     private bool _disposed = false;
     private string _currentStatusText = "⚪ Bağlı Değil";
+    private (string Title, string Message, bool IsError)? _pendingNotification;
 
     public SystemTrayManager(Window window, Action onExitRequested)
     {
@@ -111,7 +122,22 @@ public class SystemTrayManager : IDisposable
         var source = HwndSource.FromHwnd(hWnd);
         source?.AddHook(HwndHook);
 
-        // İkonu executable'dan veya standart sistemden yükle
+        s_uTaskbarCreated = RegisterWindowMessage("TaskbarCreated");
+        s_uShowGamepadCenter = RegisterWindowMessage("GamepadCenter_ShowMainWindow");
+
+        try
+        {
+            if (s_uTaskbarCreated != 0) ChangeWindowMessageFilter(s_uTaskbarCreated, MSGFLT_ADD);
+            if (s_uShowGamepadCenter != 0) ChangeWindowMessageFilter(s_uShowGamepadCenter, MSGFLT_ADD);
+        }
+        catch { }
+
+        LoadAppIcon();
+        CreateTrayIcon();
+    }
+
+    private void LoadAppIcon()
+    {
         try
         {
             var exePath = Environment.ProcessPath;
@@ -130,6 +156,14 @@ public class SystemTrayManager : IDisposable
         {
             _hIcon = LoadIcon(IntPtr.Zero, (IntPtr)32512); // IDI_APPLICATION
         }
+    }
+
+    private void CreateTrayIcon()
+    {
+        if (_disposed) return;
+
+        var helper = new WindowInteropHelper(_window);
+        var hWnd = helper.EnsureHandle();
 
         _notifyData = new NOTIFYICONDATA
         {
@@ -143,6 +177,54 @@ public class SystemTrayManager : IDisposable
         };
 
         _isCreated = Shell_NotifyIcon(NIM_ADD, ref _notifyData);
+
+        if (_isCreated)
+        {
+            OnTrayCreated();
+        }
+        else
+        {
+            // Windows başlangıcında görev çubuğu bildirim alanı henüz hazır olmayabilir.
+            // Hazır olana kadar arka planda düzenli aralıklarla yeniden dene.
+            Task.Run(async () =>
+            {
+                for (int i = 0; i < 15 && !_isCreated && !_disposed; i++)
+                {
+                    await Task.Delay(1500);
+                    try
+                    {
+                        _window.Dispatcher.Invoke(() =>
+                        {
+                            if (!_isCreated && !_disposed)
+                            {
+                                _isCreated = Shell_NotifyIcon(NIM_ADD, ref _notifyData);
+                                if (_isCreated)
+                                {
+                                    OnTrayCreated();
+                                }
+                            }
+                        });
+                    }
+                    catch { }
+                }
+            });
+        }
+    }
+
+    private void OnTrayCreated()
+    {
+        _isCreated = true;
+        if (!string.IsNullOrEmpty(_currentStatusText))
+        {
+            UpdateStatus(_currentStatusText);
+        }
+
+        if (_pendingNotification.HasValue)
+        {
+            var notif = _pendingNotification.Value;
+            _pendingNotification = null;
+            ShowNotification(notif.Title, notif.Message, notif.IsError);
+        }
     }
 
     public void UpdateStatus(string statusText)
@@ -160,15 +242,25 @@ public class SystemTrayManager : IDisposable
 
     public void ShowNotification(string title, string message, bool isError = false)
     {
-        if (!_isCreated || _disposed) return;
+        if (_disposed) return;
 
-        _notifyData.uFlags = NIF_INFO;
-        _notifyData.szInfoTitle = title.Length > 63 ? title.Substring(0, 63) : title;
-        _notifyData.szInfo = message.Length > 255 ? message.Substring(0, 255) : message;
-        _notifyData.dwInfoFlags = isError ? NIIF_ERROR : NIIF_INFO;
-        _notifyData.hBalloonIcon = IntPtr.Zero;
+        if (!_isCreated)
+        {
+            _pendingNotification = (title, message, isError);
+            return;
+        }
 
-        Shell_NotifyIcon(NIM_MODIFY, ref _notifyData);
+        try
+        {
+            _notifyData.uFlags = NIF_INFO;
+            _notifyData.szInfoTitle = title.Length > 63 ? title.Substring(0, 63) : title;
+            _notifyData.szInfo = message.Length > 255 ? message.Substring(0, 255) : message;
+            _notifyData.dwInfoFlags = isError ? NIIF_ERROR : NIIF_INFO;
+            _notifyData.hBalloonIcon = IntPtr.Zero;
+
+            Shell_NotifyIcon(NIM_MODIFY, ref _notifyData);
+        }
+        catch { }
     }
 
     public void RestoreWindow()
@@ -198,6 +290,27 @@ public class SystemTrayManager : IDisposable
 
     private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        // 1. Windows Taskbar oluşturulduğunda (Örn. Windows açılışı veya explorer.exe yeniden başlaması)
+        if (s_uTaskbarCreated != 0 && msg == (int)s_uTaskbarCreated)
+        {
+            _isCreated = Shell_NotifyIcon(NIM_ADD, ref _notifyData);
+            if (_isCreated)
+            {
+                OnTrayCreated();
+            }
+            handled = true;
+            return IntPtr.Zero;
+        }
+
+        // 2. İkinci bir uygulama örneği çalıştırıldığında mevcut örneği öne getir
+        if (s_uShowGamepadCenter != 0 && msg == (int)s_uShowGamepadCenter)
+        {
+            RestoreWindow();
+            handled = true;
+            return IntPtr.Zero;
+        }
+
+        // 3. Tepsi simgesi tıklama olayları
         if (msg == WM_TRAYCALLBACK)
         {
             int eventId = (int)((long)lParam & 0xFFFF);
@@ -235,7 +348,7 @@ public class SystemTrayManager : IDisposable
             Placement = PlacementMode.MousePoint
         };
 
-        // 1. Gamepad Center'ı Aç
+        // 1. Gamepad Center'ı Göster
         var showItem = new MenuItem
         {
             Header = "Gamepad Center'ı Göster",
