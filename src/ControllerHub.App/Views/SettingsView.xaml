@@ -60,13 +60,13 @@
                     </CheckBox>
                     <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
 
-                    <CheckBox IsChecked="{Binding NotificationsEnabled}" Cursor="Hand">
+                    <CheckBox IsChecked="{Binding NotificationsEnabled}" Margin="0,0,0,14" Cursor="Hand">
                         <StackPanel Margin="8,0,0,0">
                             <TextBlock Text="Bağlantı bildirimlerini göster" FontSize="13.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}"/>
                             <TextBlock Text="Kontrolcünüz bağlandığında veya bağlantısı kesildiğinde Windows masaüstü bildirimi gösterir." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
                         </StackPanel>
                     </CheckBox>
-                    <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
+                    <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,14"/>
 
                     <Grid Margin="0,2,0,0">
                         <Grid.ColumnDefinitions>
