@@ -664,9 +664,52 @@ public partial class BatteryViewModel : ViewModelBase
         }
     }
 
+    private CancellationTokenSource? _feedbackCts;
+
+    [RelayCommand]
+    private void DismissFeedback()
+    {
+        _feedbackCts?.Cancel();
+        HasFeedback = false;
+        StatusFeedback = "";
+    }
+
     private void ShowFeedback(string message)
     {
+        _feedbackCts?.Cancel();
+        _feedbackCts = new CancellationTokenSource();
+        var token = _feedbackCts.Token;
+
         StatusFeedback = message;
         HasFeedback = true;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(4000, token);
+                if (!token.IsCancellationRequested)
+                {
+                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                    if (dispatcher != null && !dispatcher.CheckAccess())
+                    {
+                        _ = dispatcher.BeginInvoke(() =>
+                        {
+                            if (!token.IsCancellationRequested)
+                            {
+                                HasFeedback = false;
+                                StatusFeedback = "";
+                            }
+                        });
+                    }
+                    else
+                    {
+                        HasFeedback = false;
+                        StatusFeedback = "";
+                    }
+                }
+            }
+            catch { }
+        });
     }
 }
