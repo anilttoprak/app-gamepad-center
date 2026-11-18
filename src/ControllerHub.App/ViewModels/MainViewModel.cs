@@ -90,8 +90,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _statusColorBrush = "#667085";
 
+    private readonly object _collectionsLock = new();
+
     public MainViewModel()
     {
+        try
+        {
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(ConnectedControllers, _collectionsLock);
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(ControllerFilterOptions, _collectionsLock);
+        }
+        catch { }
+
         _currentView = DashboardVM;
 
         // 1. SQLite Veritabanı ve Repository Katmanı
@@ -197,40 +206,53 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var connectedList = _deviceWatcher.ConnectedDevices;
         var customNames = await _metadataRepository.GetAllCustomNamesAsync();
 
-        ConnectedControllers.Clear();
-        foreach (var dev in connectedList)
+        void UpdateCards()
         {
-            string displayName = customNames.TryGetValue(dev.DeviceKey, out var alias) && !string.IsNullOrWhiteSpace(alias)
-                ? alias
-                : dev.Name;
-
-            string badge = dev.ConnectionType switch
+            ConnectedControllers.Clear();
+            foreach (var dev in connectedList)
             {
-                ControllerConnectionType.WiredUsb => "USB",
-                ControllerConnectionType.WirelessAdapter => "Alıcı",
-                _ => "BT"
-            };
+                string displayName = customNames.TryGetValue(dev.DeviceKey, out var alias) && !string.IsNullOrWhiteSpace(alias)
+                    ? alias
+                    : dev.Name;
 
-            string battery = dev.ConnectionType == ControllerConnectionType.WiredUsb
-                ? "🔌 Sürekli Güç"
-                : (dev.BatteryLevel.HasValue ? $"🔋 %{dev.BatteryLevel.Value}" : "🔋 Bağlı");
+                string badge = dev.ConnectionType switch
+                {
+                    ControllerConnectionType.WiredUsb => "USB",
+                    ControllerConnectionType.WirelessAdapter => "Alıcı",
+                    _ => "BT"
+                };
 
-            string icon = dev.ConnectionType == ControllerConnectionType.WiredUsb ? "🔌" : "🎮";
+                string battery = dev.ConnectionType == ControllerConnectionType.WiredUsb
+                    ? "🔌 Sürekli Güç"
+                    : (dev.BatteryLevel.HasValue ? $"🔋 %{dev.BatteryLevel.Value}" : "🔋 Bağlı");
 
-            ConnectedControllers.Add(new ConnectedDeviceCardViewModel
-            {
-                DeviceKey = dev.DeviceKey,
-                DisplayName = displayName,
-                HardwareName = dev.Name,
-                ConnectionBadge = badge,
-                BatteryText = battery,
-                Icon = icon,
-                IsWired = dev.ConnectionType == ControllerConnectionType.WiredUsb
-            });
+                string icon = dev.ConnectionType == ControllerConnectionType.WiredUsb ? "🔌" : "🎮";
+
+                ConnectedControllers.Add(new ConnectedDeviceCardViewModel
+                {
+                    DeviceKey = dev.DeviceKey,
+                    DisplayName = displayName,
+                    HardwareName = dev.Name,
+                    ConnectionBadge = badge,
+                    BatteryText = battery,
+                    Icon = icon,
+                    IsWired = dev.ConnectionType == ControllerConnectionType.WiredUsb
+                });
+            }
+
+            HasConnectedControllers = ConnectedControllers.Count > 0;
+            HasNoConnectedControllers = !HasConnectedControllers;
         }
 
-        HasConnectedControllers = ConnectedControllers.Count > 0;
-        HasNoConnectedControllers = !HasConnectedControllers;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(UpdateCards);
+        }
+        else
+        {
+            UpdateCards();
+        }
     }
 
     [RelayCommand]
@@ -479,19 +501,32 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _currentSelectedDeviceKey = anilOption?.DeviceKey ?? options.FirstOrDefault()?.DeviceKey ?? "ALL";
         }
 
-        ControllerFilterOptions.Clear();
-        foreach (var opt in options)
+        void UpdateFilters()
         {
-            ControllerFilterOptions.Add(opt);
+            ControllerFilterOptions.Clear();
+            foreach (var opt in options)
+            {
+                ControllerFilterOptions.Add(opt);
+            }
+
+            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == _currentSelectedDeviceKey)
+                ?? ControllerFilterOptions.FirstOrDefault();
+
+            DashboardVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
+            SessionsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
+            AnalyticsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
+            BatteryVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
         }
 
-        SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == _currentSelectedDeviceKey)
-            ?? ControllerFilterOptions.FirstOrDefault();
-
-        DashboardVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
-        SessionsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
-        AnalyticsVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
-        BatteryVM.UpdateFilterOptions(options, _currentSelectedDeviceKey);
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(UpdateFilters);
+        }
+        else
+        {
+            UpdateFilters();
+        }
     }
 
     private void OnFilterChangedFromView(string deviceKey, ViewModelBase source)

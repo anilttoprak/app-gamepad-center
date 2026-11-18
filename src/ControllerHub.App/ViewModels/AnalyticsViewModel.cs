@@ -16,6 +16,17 @@ public partial class AnalyticsViewModel : ViewModelBase
 
     public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
 
+    private readonly object _collectionsLock = new();
+
+    public AnalyticsViewModel()
+    {
+        try
+        {
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(ControllerFilterOptions, _collectionsLock);
+        }
+        catch { }
+    }
+
     [ObservableProperty]
     private ControllerFilterOption? _selectedControllerFilter;
 
@@ -34,24 +45,37 @@ public partial class AnalyticsViewModel : ViewModelBase
 
     public void UpdateFilterOptions(IEnumerable<ControllerFilterOption> options, string selectedKey)
     {
-        _isUpdatingFilter = true;
-        try
+        void Update()
         {
-            ControllerFilterOptions.Clear();
-            foreach (var opt in options)
+            _isUpdatingFilter = true;
+            try
             {
-                ControllerFilterOptions.Add(opt);
+                ControllerFilterOptions.Clear();
+                foreach (var opt in options)
+                {
+                    ControllerFilterOptions.Add(opt);
+                }
+
+                SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
+                    ?? ControllerFilterOptions.FirstOrDefault();
+            }
+            finally
+            {
+                _isUpdatingFilter = false;
             }
 
-            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
-                ?? ControllerFilterOptions.FirstOrDefault();
-        }
-        finally
-        {
-            _isUpdatingFilter = false;
+            _ = RefreshDataAsync();
         }
 
-        _ = RefreshDataAsync();
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(Update);
+        }
+        else
+        {
+            Update();
+        }
     }
 
     [ObservableProperty]

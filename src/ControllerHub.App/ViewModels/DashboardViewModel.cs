@@ -47,6 +47,19 @@ public partial class DashboardViewModel : ViewModelBase
 
     public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
 
+    private readonly object _collectionsLock = new();
+
+    public DashboardViewModel()
+    {
+        try
+        {
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(WeeklyActivity, _collectionsLock);
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(RecentSessions, _collectionsLock);
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(ControllerFilterOptions, _collectionsLock);
+        }
+        catch { }
+    }
+
     [ObservableProperty]
     private ControllerFilterOption? _selectedControllerFilter;
 
@@ -177,8 +190,28 @@ public partial class DashboardViewModel : ViewModelBase
         _metadataRepository = metadataRepository;
 
         _sessionTracker.ActiveSessionTicked += OnActiveSessionTicked;
-        _sessionTracker.SessionStarted += async (_, _) => await RefreshDataAsync();
-        _sessionTracker.SessionEnded += async (_, _) => await RefreshDataAsync();
+        _sessionTracker.SessionStarted += (_, _) =>
+        {
+            if (System.Windows.Application.Current?.Dispatcher != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(async () => await RefreshDataAsync());
+            }
+            else
+            {
+                _ = RefreshDataAsync();
+            }
+        };
+        _sessionTracker.SessionEnded += (_, _) =>
+        {
+            if (System.Windows.Application.Current?.Dispatcher != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(async () => await RefreshDataAsync());
+            }
+            else
+            {
+                _ = RefreshDataAsync();
+            }
+        };
     }
 
     public async Task RefreshDataAsync()
@@ -189,36 +222,60 @@ public partial class DashboardViewModel : ViewModelBase
         var sessions = await _sessionRepository.GetRecentSessionsAsync(1000);
         _cachedSessions = sessions.ToList();
 
-        // 2. Kontrolcü filtreleme seçeneklerini sadece boşsa veya tek seçenekliyse güncelle (MainViewModel yönetir)
-        if (ControllerFilterOptions.Count <= 1)
+        void UpdateUi()
         {
-            await UpdateFilterOptionsAsync();
+            // 2. Kontrolcü filtreleme seçeneklerini sadece boşsa veya tek seçenekliyse güncelle (MainViewModel yönetir)
+            if (ControllerFilterOptions.Count <= 1)
+            {
+                _ = UpdateFilterOptionsAsync();
+            }
+
+            // 3. Seçili filtreye göre metrikleri hesapla
+            RecalculateFilteredMetrics();
         }
 
-        // 3. Seçili filtreye göre metrikleri hesapla
-        RecalculateFilteredMetrics();
+        if (System.Windows.Application.Current?.Dispatcher != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(UpdateUi);
+        }
+        else
+        {
+            UpdateUi();
+        }
     }
 
     public void UpdateFilterOptions(IEnumerable<ControllerFilterOption> options, string selectedKey)
     {
-        _isUpdatingFilter = true;
-        try
+        void Update()
         {
-            ControllerFilterOptions.Clear();
-            foreach (var opt in options)
+            _isUpdatingFilter = true;
+            try
             {
-                ControllerFilterOptions.Add(opt);
+                ControllerFilterOptions.Clear();
+                foreach (var opt in options)
+                {
+                    ControllerFilterOptions.Add(opt);
+                }
+
+                SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
+                    ?? ControllerFilterOptions.FirstOrDefault();
+            }
+            finally
+            {
+                _isUpdatingFilter = false;
             }
 
-            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
-                ?? ControllerFilterOptions.FirstOrDefault();
-        }
-        finally
-        {
-            _isUpdatingFilter = false;
+            RecalculateFilteredMetrics();
         }
 
-        RecalculateFilteredMetrics();
+        if (System.Windows.Application.Current?.Dispatcher != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(Update);
+        }
+        else
+        {
+            Update();
+        }
     }
 
     private async Task UpdateFilterOptionsAsync()
@@ -490,10 +547,20 @@ public partial class DashboardViewModel : ViewModelBase
 
     private void OnActiveSessionTicked(object? sender, TimeSpan activeDuration)
     {
-        System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+        void Update()
         {
             RecalculateFilteredMetrics();
-        });
+        }
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(Update);
+        }
+        else
+        {
+            Update();
+        }
     }
 
     private static string GetTurkishDayShortName(DayOfWeek dayOfWeek) => dayOfWeek switch

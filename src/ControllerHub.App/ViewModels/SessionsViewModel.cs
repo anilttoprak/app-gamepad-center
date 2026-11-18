@@ -32,6 +32,18 @@ public partial class SessionsViewModel : ViewModelBase
 
     public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
 
+    private readonly object _collectionsLock = new();
+
+    public SessionsViewModel()
+    {
+        try
+        {
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(Sessions, _collectionsLock);
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(ControllerFilterOptions, _collectionsLock);
+        }
+        catch { }
+    }
+
     [ObservableProperty]
     private ControllerFilterOption? _selectedControllerFilter;
 
@@ -50,24 +62,37 @@ public partial class SessionsViewModel : ViewModelBase
 
     public void UpdateFilterOptions(IEnumerable<ControllerFilterOption> options, string selectedKey)
     {
-        _isUpdatingFilter = true;
-        try
+        void Update()
         {
-            ControllerFilterOptions.Clear();
-            foreach (var opt in options)
+            _isUpdatingFilter = true;
+            try
             {
-                ControllerFilterOptions.Add(opt);
+                ControllerFilterOptions.Clear();
+                foreach (var opt in options)
+                {
+                    ControllerFilterOptions.Add(opt);
+                }
+
+                SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
+                    ?? ControllerFilterOptions.FirstOrDefault();
+            }
+            finally
+            {
+                _isUpdatingFilter = false;
             }
 
-            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
-                ?? ControllerFilterOptions.FirstOrDefault();
-        }
-        finally
-        {
-            _isUpdatingFilter = false;
+            ApplyFilter(SelectedFilter);
         }
 
-        ApplyFilter(SelectedFilter);
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(Update);
+        }
+        else
+        {
+            Update();
+        }
     }
 
     [ObservableProperty]
@@ -94,14 +119,34 @@ public partial class SessionsViewModel : ViewModelBase
     {
         _sessionRepository = sessionRepository;
         _sessionTracker = sessionTracker;
-        _sessionTracker.SessionStarted += async (_, _) => await RefreshDataAsync();
-        _sessionTracker.SessionEnded += async (_, _) => await RefreshDataAsync();
+        _sessionTracker.SessionStarted += (_, _) =>
+        {
+            if (System.Windows.Application.Current?.Dispatcher != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(async () => await RefreshDataAsync());
+            }
+            else
+            {
+                _ = RefreshDataAsync();
+            }
+        };
+        _sessionTracker.SessionEnded += (_, _) =>
+        {
+            if (System.Windows.Application.Current?.Dispatcher != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(async () => await RefreshDataAsync());
+            }
+            else
+            {
+                _ = RefreshDataAsync();
+            }
+        };
         _sessionTracker.ActiveSessionTicked += OnActiveSessionTicked;
     }
 
     private void OnActiveSessionTicked(object? sender, TimeSpan activeDuration)
     {
-        System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+        void Update()
         {
             var activeList = _sessionTracker?.ActiveSessions;
             if (activeList != null && activeList.Count > 0)
@@ -124,7 +169,17 @@ public partial class SessionsViewModel : ViewModelBase
                 var first = Sessions[0];
                 Sessions[0] = first with { Duration = SessionTimeCalculator.FormatDurationText(activeDuration) };
             }
-        });
+        }
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(Update);
+        }
+        else
+        {
+            Update();
+        }
     }
 
     public async Task RefreshDataAsync()
@@ -134,7 +189,20 @@ public partial class SessionsViewModel : ViewModelBase
         var sessions = await _sessionRepository.GetRecentSessionsAsync(1000);
         _allSessions = sessions.ToList();
 
-        ApplyFilter(SelectedFilter);
+        void UpdateUi()
+        {
+            ApplyFilter(SelectedFilter);
+        }
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(UpdateUi);
+        }
+        else
+        {
+            UpdateUi();
+        }
     }
 
     [RelayCommand]

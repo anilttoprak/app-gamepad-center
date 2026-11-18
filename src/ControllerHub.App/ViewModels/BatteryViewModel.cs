@@ -40,6 +40,18 @@ public partial class BatteryViewModel : ViewModelBase
 
     public ObservableCollection<ControllerFilterOption> ControllerFilterOptions { get; } = new();
 
+    private readonly object _collectionsLock = new();
+
+    public BatteryViewModel()
+    {
+        try
+        {
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(ChangeHistory, _collectionsLock);
+            System.Windows.Data.BindingOperations.EnableCollectionSynchronization(ControllerFilterOptions, _collectionsLock);
+        }
+        catch { }
+    }
+
     [ObservableProperty]
     private ControllerFilterOption? _selectedControllerFilter;
 
@@ -58,24 +70,37 @@ public partial class BatteryViewModel : ViewModelBase
 
     public void UpdateFilterOptions(IEnumerable<ControllerFilterOption> options, string selectedKey)
     {
-        _isUpdatingFilter = true;
-        try
+        void Update()
         {
-            ControllerFilterOptions.Clear();
-            foreach (var opt in options)
+            _isUpdatingFilter = true;
+            try
             {
-                ControllerFilterOptions.Add(opt);
+                ControllerFilterOptions.Clear();
+                foreach (var opt in options)
+                {
+                    ControllerFilterOptions.Add(opt);
+                }
+
+                SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
+                    ?? ControllerFilterOptions.FirstOrDefault();
+            }
+            finally
+            {
+                _isUpdatingFilter = false;
             }
 
-            SelectedControllerFilter = ControllerFilterOptions.FirstOrDefault(o => o.DeviceKey == selectedKey)
-                ?? ControllerFilterOptions.FirstOrDefault();
-        }
-        finally
-        {
-            _isUpdatingFilter = false;
+            _ = RefreshDataAsync();
         }
 
-        _ = RefreshDataAsync();
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(Update);
+        }
+        else
+        {
+            Update();
+        }
     }
 
     [ObservableProperty]
@@ -246,44 +271,57 @@ public partial class BatteryViewModel : ViewModelBase
         var performance = BatteryCycleCalculator.ComputePerformance(sessions, changes, activeSession, DateTimeOffset.UtcNow);
         var cycleMap = performance.Cycles.Where(c => c.ChangeId.HasValue).ToDictionary(c => c.ChangeId!.Value);
 
-        ChangeHistory.Clear();
-        int rowNumber = 1;
-
-        foreach (var c in changes)
+        void UpdateHistoryUi()
         {
-            var prevText = c.PreviousPercentage.HasValue ? $"%{c.PreviousPercentage.Value}" : "-";
-            var newText = c.NewPercentage.HasValue ? $"%{c.NewPercentage.Value}" : "-";
-            var dateText = c.ChangedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+            ChangeHistory.Clear();
+            int rowNumber = 1;
 
-            string perfText;
-            int sessCount = 0;
-            if (cycleMap.TryGetValue(c.Id, out var cycleStats))
+            foreach (var c in changes)
             {
-                sessCount = cycleStats.SessionCount;
-                perfText = cycleStats.IsActiveCycle
-                    ? $"{cycleStats.DurationFormatted} (Aktif Pil - {sessCount} oturum)"
-                    : $"{cycleStats.DurationFormatted} ({sessCount} oturum)";
-            }
-            else
-            {
-                perfText = "-";
+                var prevText = c.PreviousPercentage.HasValue ? $"%{c.PreviousPercentage.Value}" : "-";
+                var newText = c.NewPercentage.HasValue ? $"%{c.NewPercentage.Value}" : "-";
+                var dateText = c.ChangedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+
+                string perfText;
+                int sessCount = 0;
+                if (cycleMap.TryGetValue(c.Id, out var cycleStats))
+                {
+                    sessCount = cycleStats.SessionCount;
+                    perfText = cycleStats.IsActiveCycle
+                        ? $"{cycleStats.DurationFormatted} (Aktif Pil - {sessCount} oturum)"
+                        : $"{cycleStats.DurationFormatted} ({sessCount} oturum)";
+                }
+                else
+                {
+                    perfText = "-";
+                }
+
+                ChangeHistory.Add(new BatteryChangeDisplayItem(
+                    c.Id,
+                    rowNumber++,
+                    dateText,
+                    prevText,
+                    newText,
+                    string.IsNullOrWhiteSpace(c.Note) ? "Not belirtilmedi" : c.Note,
+                    c.ChangeType,
+                    perfText,
+                    sessCount));
             }
 
-            ChangeHistory.Add(new BatteryChangeDisplayItem(
-                c.Id,
-                rowNumber++,
-                dateText,
-                prevText,
-                newText,
-                string.IsNullOrWhiteSpace(c.Note) ? "Not belirtilmedi" : c.Note,
-                c.ChangeType,
-                perfText,
-                sessCount));
+            HasChanges = ChangeHistory.Count > 0;
+            IsEmptyChanges = !HasChanges;
+            IsFirstBatterySetup = !HasChanges;
         }
 
-        HasChanges = ChangeHistory.Count > 0;
-        IsEmptyChanges = !HasChanges;
-        IsFirstBatterySetup = !HasChanges;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(UpdateHistoryUi);
+        }
+        else
+        {
+            UpdateHistoryUi();
+        }
 
         if (IsFirstBatterySetup)
         {
