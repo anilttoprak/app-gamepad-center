@@ -127,38 +127,7 @@ public partial class App : Application
 
     private static void EnsureStartMenuShortcut()
     {
-        try
-        {
-            var exePath = Environment.ProcessPath;
-            if (string.IsNullOrEmpty(exePath)) return;
-
-            var programsDir = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
-            if (!Directory.Exists(programsDir)) return;
-
-            // Eski ControllerHub kısayolunu temizle
-            try
-            {
-                var oldLnk = Path.Combine(programsDir, "ControllerHub.lnk");
-                if (File.Exists(oldLnk)) File.Delete(oldLnk);
-            }
-            catch { }
-
-            var shortcutPath = Path.Combine(programsDir, "Gamepad Center.lnk");
-
-            Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
-            if (shellType == null) return;
-
-            dynamic? shell = Activator.CreateInstance(shellType);
-            if (shell == null) return;
-
-            dynamic shortcut = shell.CreateShortcut(shortcutPath);
-            shortcut.TargetPath = exePath;
-            shortcut.IconLocation = $"{exePath},0";
-            shortcut.WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            shortcut.Description = "Gamepad Center — Evrensel Kontrol Merkezi";
-            shortcut.Save();
-        }
-        catch { }
+        ControllerHub.Infrastructure.Services.ShortcutService.EnsureStartMenuShortcut();
     }
 
     private static void LogCrash(string source, Exception ex)

@@ -347,6 +347,20 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void CreateDesktopShortcut()
+    {
+        var success = ShortcutService.CreateDesktopShortcut();
+        if (success)
+        {
+            ShowFeedback("🖥️ Gamepad Center masaüstü kısayolu başarıyla oluşturuldu.");
+        }
+        else
+        {
+            ShowFeedback("⚠️ Masaüstü kısayolu oluşturulamadı.");
+        }
+    }
+
+    [RelayCommand]
     private void OpenDatabaseFolder()
     {
         try

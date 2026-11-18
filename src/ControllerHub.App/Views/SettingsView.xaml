@@ -66,6 +66,20 @@
                             <TextBlock Text="Kontrolcünüz bağlandığında veya bağlantısı kesildiğinde Windows masaüstü bildirimi gösterir." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
                         </StackPanel>
                     </CheckBox>
+                    <Separator Background="{StaticResource BrushBorderLight}" Margin="0,0,0,12"/>
+
+                    <Grid Margin="0,2,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Masaüstü kısayolu oluştur" FontSize="13.5" FontWeight="Medium" Foreground="{StaticResource BrushTextPrimary}"/>
+                            <TextBlock Text="Uygulamaya masaüstünden tek tıkla doğrudan erişmek için masaüstünüze kısayol simgesi ekler." FontSize="11.5" Foreground="{StaticResource BrushTextSecondary}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="🖥️  Kısayol Oluştur" Style="{StaticResource SecondaryButtonStyle}" 
+                                Command="{Binding CreateDesktopShortcutCommand}" Padding="12,7" VerticalAlignment="Center"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
