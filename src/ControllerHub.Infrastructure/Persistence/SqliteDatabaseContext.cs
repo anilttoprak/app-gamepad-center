@@ -31,7 +31,9 @@ public class SqliteDatabaseContext
         _connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = DatabasePath,
-            Mode = SqliteOpenMode.ReadWriteCreate
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            DefaultTimeout = 5,
+            Cache = SqliteCacheMode.Shared
         }.ToString();
 
         InitializeDatabase();

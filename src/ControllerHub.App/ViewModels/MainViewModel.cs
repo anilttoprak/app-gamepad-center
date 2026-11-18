@@ -150,6 +150,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 await SyncControllerFiltersAsync();
             };
 
+            SettingsVM.ControllerProfileDeleted += async (_, deletedDeviceKey) =>
+            {
+                await UpdateConnectedControllersUiAsync();
+
+                if (_currentSelectedDeviceKey == deletedDeviceKey)
+                {
+                    _currentSelectedDeviceKey = "ALL";
+                }
+
+                await SyncControllerFiltersAsync();
+                await DashboardVM.RefreshDataAsync();
+                await SessionsVM.RefreshDataAsync();
+                await AnalyticsVM.RefreshDataAsync();
+                await BatteryVM.RefreshDataAsync();
+            };
+
             DashboardVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, DashboardVM);
             SessionsVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, SessionsVM);
             AnalyticsVM.ControllerFilterChanged += (_, opt) => OnFilterChangedFromView(opt.DeviceKey, AnalyticsVM);

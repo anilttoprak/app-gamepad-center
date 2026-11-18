@@ -5,4 +5,5 @@ public interface IControllerMetadataRepository
     Task<string?> GetCustomNameAsync(string deviceKey);
     Task SetCustomNameAsync(string deviceKey, string customName);
     Task<IReadOnlyDictionary<string, string>> GetAllCustomNamesAsync();
+    Task DeleteControllerProfileAsync(string deviceKey);
 }

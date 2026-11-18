@@ -15,6 +15,30 @@
                 </StackPanel>
             </Grid>
 
+            <!-- Geri Bildirim Banner'ı -->
+            <Border Background="#EBFBF3" BorderBrush="#B6ECCB" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,16">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFeedbackVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding FeedbackMessage}" FontWeight="Medium" Foreground="#067647" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <Button Grid.Column="1" Content="✕" Command="{Binding DismissFeedbackCommand}" 
+                            Background="Transparent" BorderThickness="0" Foreground="#067647" FontSize="13" FontWeight="Bold"
+                            Cursor="Hand" Padding="6,2" Margin="10,0,0,0" ToolTip="Kapat"/>
+                </Grid>
+            </Border>
+
             <!-- 1. Sistem ve Bildirim Ayarları -->
             <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,20">
                 <StackPanel>
@@ -51,7 +75,32 @@
                     <TextBlock Text="Kontrolcülerim ve Takma Adlar" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,6"/>
                     <TextBlock Text="Bilgisayarınıza bağlanan kontrolcülere özel isimler vererek Dashboard ve geçmişte kolayca ayırt edin." FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,14"/>
 
+                    <!-- Boş Durum Bilgisi -->
+                    <TextBlock Text="Henüz kayıtlı bir kontrolcü profili bulunmuyor. Bir oyun kolu bağlandığında profili otomatik olarak burada listelenecektir."
+                               FontSize="12.5" Foreground="{StaticResource BrushTextSecondary}" FontStyle="Italic" Margin="0,4,0,10" TextWrapping="Wrap">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasKnownControllers}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
                     <ItemsControl ItemsSource="{Binding KnownControllers}">
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasKnownControllers}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderLight}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
@@ -73,10 +122,11 @@
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
-                                            <TextBox Text="{Binding CustomName, UpdateSourceTrigger=PropertyChanged}" Width="180" Padding="8,6" FontSize="12.5" 
+                                            <TextBox Text="{Binding CustomName, UpdateSourceTrigger=PropertyChanged}" Width="150" MaxLength="50" Padding="8,6" FontSize="12.5" 
                                                      Background="#FFFFFF" BorderBrush="{StaticResource BrushBorderMedium}" BorderThickness="1"
                                                      ToolTip="Örn: Siyah Kol, Logitech F310"/>
-                                            <Button Content="💾 Kaydet" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Padding="10,6" Command="{Binding SaveCommand}"/>
+                                            <Button Content="💾 Kaydet" Style="{StaticResource SecondaryButtonStyle}" Margin="6,0,0,0" Padding="10,6" Command="{Binding SaveCommand}"/>
+                                            <Button Content="🗑️ Kaldır" Style="{StaticResource DangerButtonStyle}" Margin="6,0,0,0" Padding="10,6" Command="{Binding DeleteProfileCommand}" ToolTip="Bu kontrolcü profilini ve geçmiş kayıtlarını siler"/>
                                         </StackPanel>
 
                                         <TextBlock Grid.Column="3" Text="{Binding StatusMessage}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrushSuccess}" VerticalAlignment="Center"/>

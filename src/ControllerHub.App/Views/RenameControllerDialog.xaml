@@ -28,7 +28,7 @@
             </Grid>
 
             <TextBlock Text="Takma Ad (Örn: Siyah Kol, Ana Gamepad, Logitech):" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
-            <TextBox x:Name="TxtCustomName" Padding="12,10" FontSize="13.5" Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderMedium}" BorderThickness="1" Margin="0,0,0,20"/>
+            <TextBox x:Name="TxtCustomName" MaxLength="50" Padding="12,10" FontSize="13.5" Background="{StaticResource BrushBackgroundPage}" BorderBrush="{StaticResource BrushBorderMedium}" BorderThickness="1" Margin="0,0,0,20"/>
 
             <!-- Butonlar -->
             <Grid>

@@ -428,4 +428,80 @@ public class MultiDeviceArchitectureTests : IDisposable
         var matching = recent.Where(s => s.DeviceKey == "TEST_DEVICE_CONCURRENCY").ToList();
         Assert.Single(matching); // Sadece 1 adet aktif oturum
     }
+
+    [Fact]
+    public async Task ControllerMetadataRepository_DeleteControllerProfile_RemovesAllAssociatedData()
+    {
+        var metaRepo = new SqliteControllerMetadataRepository(_context);
+        var targetKey = "BT_TARGET_DELETE_ME";
+        var otherKey = "BT_KEEP_ME";
+
+        // Metadata ekle
+        await metaRepo.SetCustomNameAsync(targetKey, "Silinecek Kol");
+        await metaRepo.SetCustomNameAsync(otherKey, "Kalacak Kol");
+
+        // Oturum ekle
+        var start = DateTimeOffset.UtcNow.AddMinutes(-30);
+        await _sessionRepo.StartSessionAsync(targetKey, start);
+        await _sessionRepo.EndSessionAsync(targetKey, DateTimeOffset.UtcNow, SessionEndReason.Disconnected);
+        await _sessionRepo.StartSessionAsync(otherKey, start);
+        await _sessionRepo.EndSessionAsync(otherKey, DateTimeOffset.UtcNow, SessionEndReason.Disconnected);
+
+        // Pil kayıtları ekle
+        await _batteryRepo.RecordBatteryReadingAsync(new BatteryReading
+        {
+            DeviceKey = targetKey,
+            Percentage = 75,
+            RecordedAtUtc = DateTimeOffset.UtcNow,
+            Source = BatterySource.WindowsApiGatt,
+            Confidence = BatteryConfidence.Exact
+        });
+        await _batteryRepo.RecordBatteryReadingAsync(new BatteryReading
+        {
+            DeviceKey = otherKey,
+            Percentage = 90,
+            RecordedAtUtc = DateTimeOffset.UtcNow,
+            Source = BatterySource.WindowsApiGatt,
+            Confidence = BatteryConfidence.Exact
+        });
+
+        // Profili sil
+        await metaRepo.DeleteControllerProfileAsync(targetKey);
+
+        // Doğrulamalar: Target verileri tamamen temizlenmiş olmalı
+        var targetName = await metaRepo.GetCustomNameAsync(targetKey);
+        Assert.Null(targetName);
+
+        var sessions = await _sessionRepo.GetRecentSessionsAsync(50);
+        Assert.DoesNotContain(sessions, s => s.DeviceKey == targetKey);
+        Assert.Contains(sessions, s => s.DeviceKey == otherKey);
+
+        var targetReading = await _batteryRepo.GetLatestReadingAsync(targetKey);
+        Assert.Null(targetReading);
+
+        var otherReading = await _batteryRepo.GetLatestReadingAsync(otherKey);
+        Assert.NotNull(otherReading);
+
+        var otherName = await metaRepo.GetCustomNameAsync(otherKey);
+        Assert.Equal("Kalacak Kol", otherName);
+    }
+
+    [Fact]
+    public void CsvExportService_EscapesFormulaInjectionCharacters()
+    {
+        var change = new BatteryChange
+        {
+            Id = 1,
+            DeviceKey = "TEST_DEV",
+            ChangedAtUtc = DateTimeOffset.UtcNow,
+            PreviousPercentage = 50,
+            NewPercentage = 100,
+            Note = "=CMD('calc')",
+            ChangeType = "Manual"
+        };
+
+        var csv = ControllerHub.Infrastructure.Export.CsvExportService.GenerateBatteryChangesCsv(new[] { change });
+        Assert.Contains("'=CMD('calc')", csv);
+        Assert.DoesNotContain(";=CMD", csv);
+    }
 }

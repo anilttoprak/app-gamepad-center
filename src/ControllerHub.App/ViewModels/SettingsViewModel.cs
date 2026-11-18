@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Windows;
+using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ControllerHub.Core.Interfaces;
@@ -21,29 +23,47 @@ public partial class ControllerNicknameItem : ObservableObject
     private string _statusMessage = "";
 
     public IRelayCommand SaveCommand { get; }
+    public IRelayCommand DeleteProfileCommand { get; }
 
-    public ControllerNicknameItem(string deviceKey, string defaultName, string customName, Func<string, string, Task> onSave)
+    public ControllerNicknameItem(
+        string deviceKey, 
+        string defaultName, 
+        string customName, 
+        Func<string, string, Task> onSave,
+        Func<ControllerNicknameItem, Task> onDelete)
     {
         DeviceKey = deviceKey;
         DefaultName = defaultName;
         _customName = customName;
+
         SaveCommand = new AsyncRelayCommand(async () =>
         {
+            var trimmed = CustomName?.Trim() ?? "";
+            if (trimmed.Length > 50) trimmed = trimmed[..50];
+            CustomName = trimmed;
+
             await onSave(DeviceKey, CustomName);
             StatusMessage = "✅ Kaydedildi";
             await Task.Delay(2000);
             StatusMessage = "";
+        });
+
+        DeleteProfileCommand = new AsyncRelayCommand(async () =>
+        {
+            await onDelete(this);
         });
     }
 }
 
 public partial class SettingsViewModel : ViewModelBase
 {
+    private readonly object _knownControllersLock = new();
     private ISettingsRepository? _settingsRepository;
     private ISessionRepository? _sessionRepository;
     private IControllerMetadataRepository? _metadataRepository;
     private WindowsStartupService? _startupService;
     private bool _isInitializing = false;
+    private CancellationTokenSource? _feedbackCts;
 
     public override string Title => "Ayarlar";
 
@@ -65,9 +85,24 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private string _trackedControllerName = "Evrensel Oyun Kolu (Tüm Cihazlar)";
 
+    [ObservableProperty]
+    private bool _hasKnownControllers;
+
+    [ObservableProperty]
+    private string _feedbackMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isFeedbackVisible;
+
     public ObservableCollection<ControllerNicknameItem> KnownControllers { get; } = new();
 
     public event EventHandler? ControllerNicknamesUpdated;
+    public event EventHandler<string>? ControllerProfileDeleted;
+
+    public SettingsViewModel()
+    {
+        BindingOperations.EnableCollectionSynchronization(KnownControllers, _knownControllersLock);
+    }
 
     public void Initialize(
         ISettingsRepository settingsRepository,
@@ -123,8 +158,6 @@ public partial class SettingsViewModel : ViewModelBase
 
     public async Task LoadKnownControllersAsync()
     {
-        KnownControllers.Clear();
-
         var customNames = _metadataRepository != null
             ? await _metadataRepository.GetAllCustomNamesAsync()
             : new Dictionary<string, string>();
@@ -143,12 +176,7 @@ public partial class SettingsViewModel : ViewModelBase
             }
         }
 
-        if (keys.Count == 0)
-        {
-            // Varsayılan Xbox kolu anahtarı ekle
-            keys.Add("XBOX_CONTROLLER_DYNAMIC");
-        }
-
+        var items = new List<ControllerNicknameItem>();
         foreach (var key in keys)
         {
             string defaultName;
@@ -177,15 +205,110 @@ public partial class SettingsViewModel : ViewModelBase
 
             string currentAlias = customNames.TryGetValue(key, out var alias) ? alias : "";
 
-            KnownControllers.Add(new ControllerNicknameItem(key, defaultName, currentAlias, async (k, name) =>
+            items.Add(new ControllerNicknameItem(key, defaultName, currentAlias, async (k, name) =>
             {
                 if (_metadataRepository != null)
                 {
                     await _metadataRepository.SetCustomNameAsync(k, name);
                     ControllerNicknamesUpdated?.Invoke(this, EventArgs.Empty);
                 }
-            }));
+            }, OnDeleteProfileAsync));
         }
+
+        void UpdateList()
+        {
+            KnownControllers.Clear();
+            foreach (var it in items)
+            {
+                KnownControllers.Add(it);
+            }
+            HasKnownControllers = KnownControllers.Count > 0;
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(UpdateList);
+        }
+        else
+        {
+            UpdateList();
+        }
+    }
+
+    public void ShowFeedback(string message, int durationSeconds = 4)
+    {
+        _feedbackCts?.Cancel();
+        _feedbackCts = new CancellationTokenSource();
+        var token = _feedbackCts.Token;
+
+        FeedbackMessage = message;
+        IsFeedbackVisible = true;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(durationSeconds), token);
+                if (!token.IsCancellationRequested)
+                {
+                    var dispatcher = Application.Current?.Dispatcher;
+                    if (dispatcher != null && !dispatcher.CheckAccess())
+                    {
+                        dispatcher.Invoke(() => IsFeedbackVisible = false);
+                    }
+                    else
+                    {
+                        IsFeedbackVisible = false;
+                    }
+                }
+            }
+            catch (TaskCanceledException) { }
+        }, token);
+    }
+
+    [RelayCommand]
+    private void DismissFeedback()
+    {
+        _feedbackCts?.Cancel();
+        IsFeedbackVisible = false;
+    }
+
+    private async Task OnDeleteProfileAsync(ControllerNicknameItem item)
+    {
+        var displayName = !string.IsNullOrWhiteSpace(item.CustomName) ? item.CustomName : item.DefaultName;
+        var confirm = MessageBox.Show(
+            Application.Current?.MainWindow,
+            $"'{displayName}' ({item.DeviceKey}) kontrolcü profilini ve ilişkili tüm oturum/pil geçmişini silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz.",
+            "Kontrolcü Profilini Kaldır",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (confirm != MessageBoxResult.Yes) return;
+
+        if (_metadataRepository != null)
+        {
+            await _metadataRepository.DeleteControllerProfileAsync(item.DeviceKey);
+        }
+
+        void RemoveItem()
+        {
+            KnownControllers.Remove(item);
+            HasKnownControllers = KnownControllers.Count > 0;
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(RemoveItem);
+        }
+        else
+        {
+            RemoveItem();
+        }
+
+        ControllerProfileDeleted?.Invoke(this, item.DeviceKey);
+        ShowFeedback($"🗑️ '{displayName}' kontrolcü profili ve ilişkili tüm kayıtlar silindi.");
     }
 
     async partial void OnStartWithWindowsChanged(bool value)

@@ -69,4 +69,38 @@ public class SqliteControllerMetadataRepository : IControllerMetadataRepository
 
         return dict;
     }
+
+    public async Task DeleteControllerProfileAsync(string deviceKey)
+    {
+        if (string.IsNullOrWhiteSpace(deviceKey)) return;
+
+        using var conn = _context.CreateConnection();
+        using var tx = conn.BeginTransaction();
+
+        using var cmdMeta = conn.CreateCommand();
+        cmdMeta.Transaction = tx;
+        cmdMeta.CommandText = "DELETE FROM ControllerMetadata WHERE DeviceKey = @key;";
+        cmdMeta.Parameters.AddWithValue("@key", deviceKey);
+        await cmdMeta.ExecuteNonQueryAsync();
+
+        using var cmdSessions = conn.CreateCommand();
+        cmdSessions.Transaction = tx;
+        cmdSessions.CommandText = "DELETE FROM Sessions WHERE DeviceKey = @key;";
+        cmdSessions.Parameters.AddWithValue("@key", deviceKey);
+        await cmdSessions.ExecuteNonQueryAsync();
+
+        using var cmdBattery = conn.CreateCommand();
+        cmdBattery.Transaction = tx;
+        cmdBattery.CommandText = "DELETE FROM BatteryReadings WHERE DeviceKey = @key;";
+        cmdBattery.Parameters.AddWithValue("@key", deviceKey);
+        await cmdBattery.ExecuteNonQueryAsync();
+
+        using var cmdChanges = conn.CreateCommand();
+        cmdChanges.Transaction = tx;
+        cmdChanges.CommandText = "DELETE FROM BatteryChanges WHERE DeviceKey = @key;";
+        cmdChanges.Parameters.AddWithValue("@key", deviceKey);
+        await cmdChanges.ExecuteNonQueryAsync();
+
+        await tx.CommitAsync();
+    }
 }

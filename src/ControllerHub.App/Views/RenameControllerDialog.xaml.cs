@@ -17,7 +17,8 @@ public partial class RenameControllerDialog : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        CustomName = TxtCustomName.Text.Trim();
+        var trimmed = TxtCustomName.Text.Trim();
+        CustomName = trimmed.Length > 50 ? trimmed[..50] : trimmed;
         DialogResult = true;
         Close();
     }

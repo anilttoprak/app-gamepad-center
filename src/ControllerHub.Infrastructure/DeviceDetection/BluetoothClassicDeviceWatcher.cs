@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
 using ControllerHub.Core.Policies;
@@ -141,7 +142,10 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[BluetoothClassicWatcher] Radio başlatılamadı: {ex.Message}");
+        }
     }
 
     private void OnRadioStateChanged(Radio sender, object args)
@@ -189,7 +193,10 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
                     _deviceWatcher.Stop();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[BluetoothClassicWatcher] Watcher durdurma hatası: {ex.Message}");
+            }
         }
     }
 
@@ -238,7 +245,10 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[BluetoothClassicWatcher] Cihaz keşif hatası: {ex.Message}");
+        }
     }
 
     private void StartPnpDeviceWatcher()
@@ -254,7 +264,10 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
 
             _deviceWatcher.Start();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[BluetoothClassicWatcher] PnP Watcher başlatma hatası: {ex.Message}");
+        }
     }
 
     private void OnDeviceWatcherAdded(DeviceWatcher sender, DeviceInformation info)
@@ -332,7 +345,10 @@ public class BluetoothClassicDeviceWatcher : IDeviceWatcherService
                         OnDeviceWatcherAdded(sender, devInfo);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+            {
+                Debug.WriteLine($"[BluetoothClassicWatcher] Watcher durdurma hatası: {ex.Message}");
+            }
             });
         }
     }

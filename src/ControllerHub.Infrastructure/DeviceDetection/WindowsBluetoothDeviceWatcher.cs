@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices.WindowsRuntime;
 using ControllerHub.Core.Interfaces;
 using ControllerHub.Core.Models;
@@ -136,7 +137,10 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WindowsBluetoothDeviceWatcher] Radio başlatılamadı: {ex.Message}");
+        }
     }
 
     private void OnRadioStateChanged(Radio sender, object args)
@@ -222,11 +226,17 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                             ble.Dispose();
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WindowsBluetoothDeviceWatcher] BLE Cihaz oluşturma hatası: {ex.Message}");
+                    }
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WindowsBluetoothDeviceWatcher] BLE Cihaz keşif hatası: {ex.Message}");
+        }
     }
 
     private void StartPnpDeviceWatcher()
@@ -242,7 +252,10 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
 
             _deviceWatcher.Start();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WindowsBluetoothDeviceWatcher] BLE PnP Watcher başlatma hatası: {ex.Message}");
+        }
     }
 
     private void OnDeviceWatcherAdded(DeviceWatcher sender, DeviceInformation info)
@@ -501,7 +514,10 @@ public class WindowsBluetoothDeviceWatcher : IDeviceWatcherService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WindowsBluetoothDeviceWatcher] GATT Pil servisi sorgulama hatası: {ex.Message}");
+        }
     }
 
     private void OnBatteryCharacteristicValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)

@@ -34,12 +34,14 @@ public static class CsvExportService
 
         foreach (var s in sessions)
         {
+            var deviceKey = EscapeCsvField(s.DeviceKey);
             var start = s.StartedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
             var end = s.EndedAtUtc.HasValue ? s.EndedAtUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") : "Aktif";
             var duration = TimeSpan.FromSeconds(s.DurationSeconds);
             var durationFormatted = $"{(int)duration.TotalHours} sa {duration.Minutes} dk {duration.Seconds} sn";
+            var endReason = EscapeCsvField(s.EndReason.ToString());
 
-            sb.AppendLine($"{s.Id};{s.DeviceKey};{start};{end};{s.DurationSeconds};{durationFormatted};{s.EndReason};{s.CreatedAtUtc:yyyy-MM-dd HH:mm}");
+            sb.AppendLine($"{s.Id};{deviceKey};{start};{end};{s.DurationSeconds};{durationFormatted};{endReason};{s.CreatedAtUtc:yyyy-MM-dd HH:mm}");
         }
 
         return sb.ToString();
@@ -58,6 +60,14 @@ public static class CsvExportService
 
     private static string EscapeCsvField(string field)
     {
+        if (string.IsNullOrEmpty(field)) return "";
+
+        // Formula Injection (DDE) Koruması: =, +, -, @ ile başlıyorsa Excel çalıştırmasın diye tek tırnak ekle
+        if (field.StartsWith('=') || field.StartsWith('+') || field.StartsWith('-') || field.StartsWith('@'))
+        {
+            field = "'" + field;
+        }
+
         if (field.Contains(';') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
         {
             return $"\"{field.Replace("\"", "\"\"")}\"";
